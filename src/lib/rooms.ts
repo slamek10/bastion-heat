@@ -52,6 +52,19 @@ export function aggregate(values: number[], method: Aggregation): number | undef
 const HEATING_ACTIONS = new Set(['heating', 'preheating']);
 
 /**
+ * Whether the central heating (the main zone) heats now: off, or saying
+ * it's idle, means it doesn't, and then no valve can either, however
+ * open it is. Unknown (no zone, or no state yet) doesn't stop anything.
+ */
+export function centralHeats(zone: HaState | undefined): boolean | undefined {
+	if (!zone || zone.state === 'unavailable' || zone.state === 'unknown') return undefined;
+	if (zone.state === 'off') return false;
+	const action = zone.attributes?.hvac_action;
+	if (action === undefined || action === null) return undefined;
+	return HEATING_ACTIONS.has(action);
+}
+
+/**
  * The main zone belongs to a room only when that room holds its
  * thermostat: one of its sensors is the zone itself or the temperature
  * the zone measures (the "indoor" entity).
@@ -68,7 +81,9 @@ export function roomReading(
 	states: Record<string, HaState>,
 	now: number,
 	staleMinutes: number,
-	mainZone?: string
+	mainZone?: string,
+	/** the main zone's state, for every room: its valves heat only while it does */
+	central?: HaState
 ): RoomReading {
 	const used = room.sensors.map((entity) => readSensor(entity, states[entity], now, staleMinutes));
 	const fresh = used.filter((reading) => !reading.stale).map((reading) => reading.value!);
@@ -86,12 +101,14 @@ export function roomReading(
 	// the main zone counts only for the room that holds its thermostat (zoneFor)
 	const zone = !valves.length && mainZone ? states[mainZone] : undefined;
 	const ac = room.ac ? states[room.ac] : undefined;
+	const valvesOpen = valves.some(
+		(valve) =>
+			HEATING_ACTIONS.has(valve.attributes?.hvac_action) ||
+			(valve.state === 'heat' && valve.attributes?.hvac_action === undefined)
+	);
+	const centralOff = centralHeats(central) === false;
 	const heating =
-		valves.some(
-			(valve) =>
-				HEATING_ACTIONS.has(valve.attributes?.hvac_action) ||
-				(valve.state === 'heat' && valve.attributes?.hvac_action === undefined)
-		) ||
+		(valvesOpen && !centralOff) ||
 		(!!zone && HEATING_ACTIONS.has(zone.attributes?.hvac_action)) ||
 		(!!ac && HEATING_ACTIONS.has(ac.attributes?.hvac_action));
 	const humidity = room.humidity ? numberOf(states[room.humidity]) : undefined;
@@ -104,6 +121,7 @@ export function roomReading(
 		thermostat: thermostats.length ? aggregate(thermostats, 'mean') : undefined,
 		target: targets.length ? Math.max(...targets) : numberOf(zone, 'temperature'),
 		heating,
+		waiting: valvesOpen && centralOff,
 		/** a valve, the main thermostat or an AC: there is something to say about heating */
 		controlled: valves.length > 0 || !!zone || !!ac,
 		humidity: humidity !== undefined ? Math.round(humidity) : undefined,

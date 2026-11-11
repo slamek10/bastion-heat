@@ -22,6 +22,7 @@ const reading = (roomId: string, value?: number, windowOpen = false): RoomReadin
 	value,
 	used: [],
 	heating: false,
+	waiting: false,
 	controlled: true,
 	old: false,
 	windowOpen

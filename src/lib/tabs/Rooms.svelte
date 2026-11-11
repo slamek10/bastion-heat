@@ -236,6 +236,9 @@
 					{#if reading.controlled && reading.heating}<span class="tag heat"
 							><Icon icon="mdi:fire" height="0.9rem" />{$t('room_heating')}</span
 						>{/if}
+					{#if reading.waiting}<span class="tag waiting" title={$t('room_waiting_hint')}
+							><Icon icon="mdi:fire-off" height="0.9rem" />{$t('room_waiting')}</span
+						>{/if}
 					{#if $alerts.some((alert) => alert.key === `airing|${room.id}`)}<span class="tag air"
 							><Icon icon="mdi:weather-windy" height="0.9rem" />{$t('air_now')}</span
 						>{/if}
@@ -470,6 +473,10 @@
 		padding: 0.1rem 0.55rem;
 		border-radius: 1rem;
 		font-size: 0.75rem;
+	}
+
+	.tag.waiting {
+		opacity: 0.7;
 	}
 
 	.tag.heat {

@@ -233,6 +233,8 @@ export interface RoomReading {
 	target?: number;
 	/** a valve or the main zone is heating it right now */
 	heating: boolean;
+	/** its valves ask for heat, but the central heating is off or idle */
+	waiting: boolean;
 	/** a valve, the main thermostat or an AC heats it; else only its temperature is known */
 	controlled: boolean;
 	/** no sensor reported lately: the value is the last one heard */

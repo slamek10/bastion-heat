@@ -111,3 +111,49 @@ describe('rooms', () => {
 		);
 	});
 });
+
+describe('valves and the central heating', () => {
+	const room: Room = {
+		id: 'r',
+		name: 'Spavaća',
+		sensors: ['climate.trv'],
+		aggregation: 'mean',
+		trvs: ['climate.trv'],
+		windows: []
+	};
+	const states: Record<string, HaState> = {
+		'climate.trv': {
+			entity_id: 'climate.trv',
+			state: 'heat',
+			attributes: { current_temperature: 20, temperature: 22, hvac_action: 'heating' },
+			last_updated: at(1)
+		}
+	};
+	const zone = (state: string, hvac_action?: string): HaState => ({
+		entity_id: 'climate.zone',
+		state,
+		attributes: hvac_action ? { hvac_action } : {},
+		last_updated: at(1)
+	});
+
+	it('an open valve heats only while the central heating does', () => {
+		expect(roomReading(room, states, NOW, 90, undefined, zone('auto', 'heating'))).toMatchObject({
+			heating: true,
+			waiting: false
+		});
+		expect(roomReading(room, states, NOW, 90, undefined, zone('off'))).toMatchObject({
+			heating: false,
+			waiting: true
+		});
+		expect(roomReading(room, states, NOW, 90, undefined, zone('auto', 'idle'))).toMatchObject({
+			heating: false,
+			waiting: true
+		});
+	});
+
+	it('an unknown central heating stops nothing', () => {
+		expect(roomReading(room, states, NOW, 90).heating).toBe(true);
+		expect(roomReading(room, states, NOW, 90, undefined, zone('unavailable')).heating).toBe(true);
+		expect(roomReading(room, states, NOW, 90, undefined, zone('heat')).heating).toBe(true);
+	});
+});

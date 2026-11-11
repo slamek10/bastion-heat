@@ -51,7 +51,14 @@ export async function currentRooms() {
 	const now = Date.now();
 	return settings.rooms.map((room) => ({
 		room,
-		reading: roomReading(room, states, now, settings.staleMinutes, zoneFor(room, settings.entities))
+		reading: roomReading(
+			room,
+			states,
+			now,
+			settings.staleMinutes,
+			zoneFor(room, settings.entities),
+			states[settings.entities.zone]
+		)
 	}));
 }
 

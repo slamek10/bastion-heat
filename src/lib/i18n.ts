@@ -73,6 +73,9 @@ const hr = {
 	room_thermostat: 'termostat {t}',
 	room_target: 'cilj {t}',
 	room_heating: 'grije',
+	room_waiting: 'čeka centralno',
+	room_waiting_hint:
+		'Ventili traže toplinu, ali centralno grijanje je ugašeno ili ne grije, pa soba trenutno ne dobiva toplinu.',
 	room_old: 'staro očitanje, senzor se dugo nije javio',
 	room_towards: 'grije prema {t} °C',
 	target_up: 'Povisi cilj',
@@ -388,6 +391,9 @@ const en: typeof hr = {
 	room_thermostat: 'thermostat {t}',
 	room_target: 'target {t}',
 	room_heating: 'heating',
+	room_waiting: 'waiting for central',
+	room_waiting_hint:
+		'The valves ask for heat, but the central heating is off or not heating, so the room gets none right now.',
 	room_old: 'old reading, the sensor has not reported for a while',
 	room_towards: 'heating towards {t} °C',
 	target_up: 'Raise the target',

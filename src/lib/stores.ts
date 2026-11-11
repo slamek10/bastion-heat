@@ -41,7 +41,8 @@ export const rooms = derived([settings, states, now], ([$settings, $states, $now
 			$states,
 			$now,
 			$settings.staleMinutes,
-			zoneFor(room, $settings.entities)
+			zoneFor(room, $settings.entities),
+			$states[$settings.entities.zone]
 		)
 	}))
 );
