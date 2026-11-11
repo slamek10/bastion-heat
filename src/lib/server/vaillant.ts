@@ -55,20 +55,41 @@ async function merge(from: Date, to: Date) {
 	return store;
 }
 
-/** the last week, and one more piece of history while some is missing */
+let pulling = false;
+export const isPulling = () => pulling || filling;
+
+/**
+ * The last week now (awaited, so the page sees the result or the error),
+ * then the missing history in the background.
+ */
+export async function pullNow(): Promise<VaillantStore> {
+	if (!haReady()) {
+		const store = await loadVaillant();
+		store.error = 'Home Assistant is not connected';
+		await write(FILE, store);
+		return store;
+	}
+	pulling = true;
+	try {
+		const tomorrow = new Date();
+		tomorrow.setHours(0, 0, 0, 0);
+		tomorrow.setTime(tomorrow.getTime() + DAY);
+		const store = await merge(new Date(tomorrow.getTime() - 8 * DAY), tomorrow);
+		if (!store.error) backfill().catch(() => {});
+		return store;
+	} finally {
+		pulling = false;
+	}
+}
+
 export async function refreshVaillant() {
 	const settings = await loadSettings();
 	if (settings.energySource !== 'vaillant' || !haReady()) return;
-	const tomorrow = new Date();
-	tomorrow.setHours(0, 0, 0, 0);
-	tomorrow.setTime(tomorrow.getTime() + DAY);
-	const store = await merge(new Date(tomorrow.getTime() - 8 * DAY), tomorrow);
-	if (store.error) return;
-	await backfill();
+	await pullNow();
 }
 
 let filling = false;
-async function backfill() {
+async function backfill(): Promise<void> {
 	if (filling) return;
 	filling = true;
 	try {

@@ -159,7 +159,15 @@
 	}
 
 	let vaillant = $state<
-		{ days: number; from?: string; fetchedAt?: number; error?: string } | undefined
+		| {
+				days: number;
+				from?: string;
+				fetchedAt?: number;
+				error?: string;
+				filling?: boolean;
+				busy?: boolean;
+		  }
+		| undefined
 	>();
 	async function loadVaillant() {
 		const response = await fetch('/_api/vaillant').catch(() => undefined);
@@ -168,15 +176,33 @@
 	onMount(() => {
 		loadVaillant();
 	});
+	let pulling = $state(false);
 	async function pullVaillant() {
+		if (pulling) return;
+		pulling = true;
 		const response = await fetch('/_api/vaillant', { method: 'POST' }).catch(() => undefined);
-		toast({
-			title: $t(response?.ok ? 'vaillant_started' : 'save_failed', { count: '' }),
-			message: '',
-			alert: !response?.ok
-		});
-		setTimeout(loadVaillant, 15_000);
+		const body = await response?.json().catch(() => undefined);
+		pulling = false;
+		if (body) vaillant = body;
+		if (!response?.ok || body?.error) {
+			toast({
+				title: $t('vaillant_failed'),
+				message: body?.error ?? String(response?.status ?? ''),
+				alert: true
+			});
+		} else if (body.busy) {
+			toast({ title: $t('vaillant_busy'), message: '' });
+		} else {
+			toast({ title: $t('vaillant_done', { days: String(body.days) }), message: '' });
+		}
 	}
+
+	/* while history comes in, the count moves */
+	$effect(() => {
+		if (!vaillant?.filling) return;
+		const timer = setInterval(loadVaillant, 20_000);
+		return () => clearInterval(timer);
+	});
 
 	let sending = $state(false);
 	async function test() {
@@ -477,10 +503,14 @@
 								{:else}
 									{$t('vaillant_never')}
 								{/if}
+								{#if vaillant?.filling}<br />{$t('vaillant_filling')}{/if}
 								{#if vaillant?.error}<br /><span class="w-warn">{vaillant.error}</span>{/if}
 							</span>
-							<button class="pill small" onclick={pullVaillant}>
-								<Icon icon="mdi:cloud-download-outline" height="1rem" />{$t('vaillant_fetch')}
+							<button class="pill small" onclick={pullVaillant} disabled={pulling}>
+								<Icon
+									icon={pulling ? 'mdi:loading' : 'mdi:cloud-download-outline'}
+									height="1rem"
+								/>{$t(pulling ? 'vaillant_started' : 'vaillant_fetch')}
 							</button>
 						</div>
 					{:else}

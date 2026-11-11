@@ -1,25 +1,24 @@
 import { json } from '@sveltejs/kit';
-import { loadVaillant, refreshVaillant } from '$lib/server/vaillant';
+import { isPulling, loadVaillant, pullNow, type VaillantStore } from '$lib/server/vaillant';
 
-export async function GET() {
-	const store = await loadVaillant();
+function status(store: VaillantStore) {
 	const dates = Object.keys(store.days).sort();
-	return json({
+	return {
 		days: dates.length,
 		from: dates[0],
 		to: dates.at(-1),
 		firstData: store.firstData,
 		fetchedAt: store.fetchedAt,
-		error: store.error
-	});
+		error: store.error,
+		/** history still being pulled in the background */
+		filling: isPulling() || (!!store.firstData && !!store.backTo && store.backTo > store.firstData)
+	};
 }
 
-let last = 0;
+export const GET = async () => json(status(await loadVaillant()));
 
-/** pull now (the last week, then the missing history in the background); once in 5 minutes */
+/** the last week now, the rest in the background; not while a pull runs */
 export async function POST() {
-	if (Date.now() - last < 5 * 60_000) return json({ error: 'wait' }, { status: 429 });
-	last = Date.now();
-	refreshVaillant().catch(() => {});
-	return json({ ok: true });
+	if (isPulling()) return json({ ...status(await loadVaillant()), busy: true });
+	return json(status(await pullNow()));
 }
