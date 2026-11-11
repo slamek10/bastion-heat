@@ -23,6 +23,20 @@ const text = (value: unknown, max: number) =>
 	typeof value === 'string' ? value.trim().slice(0, max) : '';
 const AGGREGATIONS: Aggregation[] = ['mean', 'median', 'min'];
 
+/** names only for the room's own entities, at most 60 characters */
+function labelsOf(input: any) {
+	if (!input?.labels || typeof input.labels !== 'object') return {};
+	const own = new Set(
+		[...entities(input.sensors), ...entities(input.trvs), entity(input.humidity)].filter(Boolean)
+	);
+	const labels = Object.fromEntries(
+		Object.entries(input.labels)
+			.filter(([id, name]) => own.has(id) && typeof name === 'string' && name.trim())
+			.map(([id, name]) => [id, (name as string).trim().slice(0, 60)])
+	);
+	return Object.keys(labels).length ? { labels } : {};
+}
+
 function cleanRoom(input: any, index: number): Room | undefined {
 	const name = text(input?.name, 60);
 	if (!name) return undefined;
@@ -35,7 +49,8 @@ function cleanRoom(input: any, index: number): Room | undefined {
 		trvs: entities(input?.trvs),
 		...(entity(input?.ac) && { ac: entity(input.ac) }),
 		windows: entities(input?.windows),
-		...(entity(input?.humidity) && { humidity: entity(input.humidity) })
+		...(entity(input?.humidity) && { humidity: entity(input.humidity) }),
+		...labelsOf(input)
 	};
 }
 

@@ -35,6 +35,8 @@ export interface Room {
 	/** window / door contacts and TRV window_open sensors */
 	windows: string[];
 	humidity?: string;
+	/** the user's own names for the room's sensors and valves, by entity */
+	labels?: Record<string, string>;
 }
 
 export interface PresetTarget {

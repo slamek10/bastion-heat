@@ -126,7 +126,9 @@ const hr = {
 	multi_selected: 'Odabrano: {count}',
 	multi_nothing: 'Ništa ne odgovara.',
 	multi_all: 'Odaberi sve',
-	multi_clear: 'Očisti'
+	multi_clear: 'Očisti',
+	rename: 'Preimenuj',
+	room_humidity_chart: 'vlaga, zadnja 24 h'
 };
 
 const en: typeof hr = {
@@ -252,7 +254,9 @@ const en: typeof hr = {
 	multi_selected: 'Selected: {count}',
 	multi_nothing: 'Nothing matches.',
 	multi_all: 'Select all',
-	multi_clear: 'Clear'
+	multi_clear: 'Clear',
+	rename: 'Rename',
+	room_humidity_chart: 'humidity, last 24 h'
 };
 
 export type Key = keyof typeof hr;
