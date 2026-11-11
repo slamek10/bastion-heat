@@ -114,11 +114,11 @@
 				</thead>
 				<tbody>
 					{#each report.rooms as room (room.id)}
-						{@const d = diff(room.avg, room.target)}
+						{@const d = diff(room.comfortAvg ?? room.avg, room.target)}
 						<tr>
 							<td>{room.name}</td>
 							<td class="num"
-								>{room.avg ?? '—'}°
+								>{room.comfortAvg ?? room.avg ?? '—'}°
 								{#if d !== undefined}<span class="w-dim" class:w-warn={Math.abs(d) >= 1}
 										>({d > 0 ? '+' : ''}{d})</span
 									>{/if}</td

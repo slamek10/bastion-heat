@@ -11,7 +11,7 @@ import { days } from '$lib/server/efficiency';
 import { alertLog } from '$lib/server/checks';
 import { sendNotification } from '$lib/server/notify';
 import { dateKey } from '$lib/efficiency';
-import { heatingHours, meanTarget, roomWeek, tips, type RoomWeek, type Tip } from '$lib/report';
+import { comfort, heatingHours, roomWeek, tips, type RoomWeek, type Tip } from '$lib/report';
 import { translate, type Key } from '$lib/i18n';
 
 export interface Report {
@@ -57,15 +57,17 @@ export async function makeReport(end = new Date()): Promise<Report> {
 	]);
 
 	const rooms: RoomWeek[] = settings.rooms.map((room) => {
-		const week = roomWeek(
-			room.sensors.map((id) => hourly[id] ?? []),
-			room.aggregation
-		);
 		const thermostats = climateOf(room).map((id) => climates[id] ?? []);
 		const hours = thermostats.map((rows) => heatingHours(rows, start, end.getTime()));
-		const targets = thermostats
-			.map((rows) => meanTarget(rows, start, end.getTime()))
-			.filter((v): v is number => v !== undefined);
+		const comforts = thermostats
+			.map((rows) => comfort(rows, start, end.getTime()))
+			.filter((entry) => entry !== undefined);
+		const targets = comforts.map((entry) => entry.target);
+		const week = roomWeek(
+			room.sensors.map((id) => hourly[id] ?? []),
+			room.aggregation,
+			comforts.length ? (time) => comforts.some((entry) => entry.at(time)) : undefined
+		);
 		const logged = log.filter(
 			(entry) => entry.at >= start && entry.at < end.getTime() && entry.key.endsWith(`|${room.id}`)
 		);
@@ -96,7 +98,7 @@ export async function makeReport(end = new Date()): Promise<Report> {
 	};
 	const week = inWeek(start, end.getTime());
 	const before = inWeek(start - 7 * DAY, start);
-	const meters = settings.heatingEnergy.length > 0;
+	const meters = settings.heatingEnergy.length > 0 && week.some((day) => day.metered);
 	const kwh = meters ? round(sum(week, (day) => day.kwh)) : undefined;
 	const perHdd = meters ? ratio(week) : undefined;
 	const previousPerHdd = meters ? ratio(before) : undefined;

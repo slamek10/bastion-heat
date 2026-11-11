@@ -203,15 +203,16 @@ const hr = {
 	report_failed: 'Izvještaj nije napravljen',
 	report_vs_week: 'prema tjednu prije',
 	report_room: 'Soba',
-	report_avg: 'Prosjek',
-	report_target: 'Cilj',
+	report_avg: 'Prosjek (dok grije)',
+	report_target: 'Dnevni cilj',
 	report_minmax: 'Min / max',
 	report_heating: 'Grijanje',
 	report_energy_line: '{kwh} kWh{cost}, {hdd} stupanj-dana',
 	report_hdd_line: '{hdd} stupanj-dana',
 	report_enabled: 'Tjedni izvještaj na mobitel',
 	report_when: 'Kada',
-	report_hint: 'Izvještaj pokriva sedam dana do ponoći tog dana i ostaje u kartici Analiza.',
+	report_hint:
+		'Izvještaj pokriva sedam dana do ponoći tog dana i ostaje u kartici Analiza. Sobe se uspoređuju s dnevnim ciljem termostata (najviši cilj koji je držao barem 2 h), samo u satima kad je taj cilj vrijedio; noćno sniženje se ne računa.',
 	weekday_1: 'ponedjeljak',
 	weekday_2: 'utorak',
 	weekday_3: 'srijeda',
@@ -220,7 +221,7 @@ const hr = {
 	weekday_6: 'subota',
 	weekday_7: 'nedjelja',
 	tip_too_warm:
-		'{name} je bio prosječno {d}° iznad cilja. Spusti cilj ili ventil, svaki stupanj manje je oko 6 % energije.',
+		'{name} je dok grije bio prosječno {d}° iznad dnevnog cilja. Spusti cilj ili ventil, svaki stupanj manje je oko 6 % energije.',
 	tip_struggles:
 		'{name} je {h} h grijao, a ipak ostao {d}° ispod cilja. Provjeri ventil, radijator (zrak) ili krivulju.',
 	tip_cold: '{name} je {n}× pao ispod granice hladnoće.',
@@ -431,8 +432,8 @@ const en: typeof hr = {
 	report_failed: 'The report was not made',
 	report_vs_week: 'against the week before',
 	report_room: 'Room',
-	report_avg: 'Average',
-	report_target: 'Target',
+	report_avg: 'Average (heating time)',
+	report_target: 'Day target',
 	report_minmax: 'Min / max',
 	report_heating: 'Heating',
 	report_energy_line: '{kwh} kWh{cost}, {hdd} degree-days',
@@ -449,7 +450,7 @@ const en: typeof hr = {
 	weekday_6: 'Saturday',
 	weekday_7: 'Sunday',
 	tip_too_warm:
-		'{name} was {d}° above target on average. Lower the target or the valve; every degree less is about 6 % energy.',
+		'{name} was {d}° above the day target on average while heating. Lower the target or the valve; every degree less is about 6 % energy.',
 	tip_struggles:
 		'{name} heated {h} h and still stayed {d}° below target. Check the valve, the radiator (air) or the curve.',
 	tip_cold: '{name} fell below the cold limit {n}×.',
