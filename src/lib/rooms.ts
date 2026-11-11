@@ -51,6 +51,18 @@ export function aggregate(values: number[], method: Aggregation): number | undef
 
 const HEATING_ACTIONS = new Set(['heating', 'preheating']);
 
+/**
+ * The main zone belongs to a room only when that room holds its
+ * thermostat: one of its sensors is the zone itself or the temperature
+ * the zone measures (the "indoor" entity).
+ */
+export function zoneFor(room: Room, entities: { zone: string; indoor?: string }) {
+	const own =
+		room.sensors.includes(entities.zone) ||
+		(!!entities.indoor && room.sensors.includes(entities.indoor));
+	return own ? entities.zone : undefined;
+}
+
 export function roomReading(
 	room: Room,
 	states: Record<string, HaState>,
@@ -60,6 +72,10 @@ export function roomReading(
 ): RoomReading {
 	const used = room.sensors.map((entity) => readSensor(entity, states[entity], now, staleMinutes));
 	const fresh = used.filter((reading) => !reading.stale).map((reading) => reading.value!);
+	// every sensor old: still the last values, marked as such (some report only on change)
+	const last = used
+		.filter((reading) => reading.value !== undefined)
+		.map((reading) => reading.value!);
 	const valves = room.trvs.map((entity) => states[entity]).filter(Boolean);
 	const thermostats = valves
 		.map((valve) => numberOf(valve, 'current_temperature'))
@@ -67,26 +83,30 @@ export function roomReading(
 	const targets = valves
 		.map((valve) => numberOf(valve, 'temperature'))
 		.filter((v): v is number => v !== undefined);
-	const zone = mainZone ? states[mainZone] : undefined;
-	// without valves the main zone heats every room
-	const heating = valves.length
-		? valves.some(
-				(valve) =>
-					HEATING_ACTIONS.has(valve.attributes?.hvac_action) ||
-					(valve.state === 'heat' && valve.attributes?.hvac_action === undefined)
-			)
-		: !!zone && HEATING_ACTIONS.has(zone.attributes?.hvac_action);
+	// the main zone counts only for the room that holds its thermostat (zoneFor)
+	const zone = !valves.length && mainZone ? states[mainZone] : undefined;
+	const ac = room.ac ? states[room.ac] : undefined;
+	const heating =
+		valves.some(
+			(valve) =>
+				HEATING_ACTIONS.has(valve.attributes?.hvac_action) ||
+				(valve.state === 'heat' && valve.attributes?.hvac_action === undefined)
+		) ||
+		(!!zone && HEATING_ACTIONS.has(zone.attributes?.hvac_action)) ||
+		(!!ac && HEATING_ACTIONS.has(ac.attributes?.hvac_action));
+	const humidity = room.humidity ? numberOf(states[room.humidity]) : undefined;
 	const windowOpen = room.windows.some((entity) => states[entity]?.state === 'on');
 	return {
 		roomId: room.id,
-		value: aggregate(fresh, room.aggregation),
+		value: aggregate(fresh, room.aggregation) ?? aggregate(last, room.aggregation),
+		old: !fresh.length && last.length > 0,
 		used,
 		thermostat: thermostats.length ? aggregate(thermostats, 'mean') : undefined,
-		// the main zone's target belongs to the thermostat's room, not to a room without valves
-		target: targets.length ? Math.max(...targets) : undefined,
+		target: targets.length ? Math.max(...targets) : numberOf(zone, 'temperature'),
 		heating,
-		byBoiler: !valves.length,
-		humidity: room.humidity ? numberOf(states[room.humidity]) : undefined,
+		/** a valve, the main thermostat or an AC: there is something to say about heating */
+		controlled: valves.length > 0 || !!zone || !!ac,
+		humidity: humidity !== undefined ? Math.round(humidity) : undefined,
 		windowOpen
 	};
 }

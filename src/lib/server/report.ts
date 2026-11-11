@@ -13,6 +13,7 @@ import { sendNotification } from '$lib/server/notify';
 import { dateKey } from '$lib/efficiency';
 import { comfort, heatingHours, roomWeek, tips, type RoomWeek, type Tip } from '$lib/report';
 import { translate, type Key } from '$lib/i18n';
+import { zoneFor } from '$lib/rooms';
 
 export interface Report {
 	id: string;
@@ -59,8 +60,8 @@ export async function makeReport(end = new Date()): Promise<Report> {
 	const rooms: RoomWeek[] = settings.rooms.map((room) => {
 		const thermostats = climateOf(room).map((id) => climates[id] ?? []);
 		const hours = thermostats.map((rows) => heatingHours(rows, start, end.getTime()));
-		// a target only from the room's own valves; the zone's belongs to the thermostat's room
-		const comforts = (room.trvs.length ? thermostats : [])
+		// a target only from the room's own valves, or the zone in the room of its thermostat
+		const comforts = (room.trvs.length || zoneFor(room, settings.entities) ? thermostats : [])
 			.map((rows) => comfort(rows, start, end.getTime()))
 			.filter((entry) => entry !== undefined);
 		const targets = comforts.map((entry) => entry.target);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aggregate, houseTemperature, readSensor, roomReading } from './rooms';
+import { aggregate, houseTemperature, readSensor, roomReading, zoneFor } from './rooms';
 import type { HaState, Room } from './types';
 
 const NOW = Date.parse('2026-11-11T08:00:00Z');
@@ -54,13 +54,14 @@ describe('rooms', () => {
 			thermostat: 22.5,
 			target: 21.5,
 			heating: true,
-			byBoiler: false,
+			controlled: true,
+			old: false,
 			windowOpen: false
 		});
 		expect(reading.used.map((u) => u.stale)).toEqual([false, false, false]);
 	});
 
-	it('without valves only the boiler tells whether it heats; no target', () => {
+	it('the main zone belongs only to the room of its thermostat', () => {
 		const room: Room = {
 			id: 'r',
 			name: 'Ured',
@@ -77,9 +78,31 @@ describe('rooms', () => {
 				attributes: { temperature: 22, hvac_action: 'heating' }
 			}
 		};
-		const reading = roomReading(room, states, NOW, 90, 'climate.zone');
-		expect(reading).toMatchObject({ value: 20.9, heating: true, byBoiler: true });
-		expect(reading.target).toBeUndefined();
+		// a room with only a sensor: nothing to say about heating
+		const plain = roomReading(room, states, NOW, 90, zoneFor(room, { zone: 'climate.zone' }));
+		expect(plain).toMatchObject({ value: 20.9, heating: false, controlled: false });
+		expect(plain.target).toBeUndefined();
+		// the room whose sensor is the zone's own temperature
+		const own = { ...room, sensors: ['sensor.u'] };
+		const zone = zoneFor(own, { zone: 'climate.zone', indoor: 'sensor.u' });
+		expect(roomReading(own, states, NOW, 90, zone)).toMatchObject({
+			target: 22,
+			heating: true,
+			controlled: true
+		});
+	});
+
+	it('keeps the last value, marked old, when every sensor is old', () => {
+		const room: Room = {
+			id: 'k',
+			name: 'Kuhinja',
+			sensors: ['sensor.k'],
+			aggregation: 'mean',
+			trvs: [],
+			windows: []
+		};
+		const reading = roomReading(room, { 'sensor.k': sensor('sensor.k', '23.93', 300) }, NOW, 90);
+		expect(reading).toMatchObject({ value: 23.9, old: true });
 	});
 
 	it('the house is the mean of the rooms that have a value', () => {

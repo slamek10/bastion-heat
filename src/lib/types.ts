@@ -179,8 +179,10 @@ export interface RoomReading {
 	target?: number;
 	/** a valve or the main zone is heating it right now */
 	heating: boolean;
-	/** no valves: only the boiler's state is known, not the room's own */
-	byBoiler: boolean;
+	/** a valve, the main thermostat or an AC heats it; else only its temperature is known */
+	controlled: boolean;
+	/** no sensor reported lately: the value is the last one heard */
+	old: boolean;
 	humidity?: number;
 	windowOpen: boolean;
 }

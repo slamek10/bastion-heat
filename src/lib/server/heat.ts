@@ -6,7 +6,7 @@
 import { loadSettings } from '$lib/server/store';
 import { publish } from '$lib/server/bus';
 import { getState, haReady, setHaState, setWatched, watchedStates } from '$lib/server/ha';
-import { houseTemperature, roomReading } from '$lib/rooms';
+import { houseTemperature, roomReading, zoneFor } from '$lib/rooms';
 import type { Settings } from '$lib/types';
 
 export function entitiesOf(settings: Settings) {
@@ -51,13 +51,7 @@ export async function currentRooms() {
 	const now = Date.now();
 	return settings.rooms.map((room) => ({
 		room,
-		reading: roomReading(
-			room,
-			states,
-			now,
-			settings.staleMinutes,
-			room.trvs.length ? undefined : settings.entities.zone
-		)
+		reading: roomReading(room, states, now, settings.staleMinutes, zoneFor(room, settings.entities))
 	}));
 }
 

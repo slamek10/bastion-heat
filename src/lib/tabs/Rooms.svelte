@@ -5,10 +5,10 @@
 	 * the target, heating, a window open, humidity, and 24 hours of each
 	 * sensor. Line colors: the categorical slots 1-3 for a dark surface.
 	 */
-	import { alerts, editMode, rooms, saveSettings, settings, states, t } from '$lib/stores';
+	import { alerts, call, editMode, rooms, saveSettings, settings, states, t } from '$lib/stores';
 	import { dewPoint } from '$lib/comfort';
 	import type { Room } from '$lib/types';
-	import { numberOf } from '$lib/rooms';
+	import { numberOf, zoneFor } from '$lib/rooms';
 	import type { Key } from '$lib/i18n';
 	import Panel from '$lib/components/Panel.svelte';
 	import Icon from '@iconify/svelte';
@@ -35,6 +35,9 @@
 			const v = parseFloat(climate ? attributes.current_temperature : row.s);
 			if (Number.isFinite(v)) points.push({ t: seconds * 1000, v });
 		}
+		// a sensor that reports only on change: its last value holds until now
+		const last = points.at(-1);
+		if (last) points.push({ t: Date.now(), v: last.v });
 		return points;
 	}
 
@@ -107,6 +110,33 @@
 		draft = room.labels?.[id] ?? '';
 	}
 
+	/** what sets a room's target: its valves, else the main zone when its thermostat is here */
+	const targetsOf = (room: Room) =>
+		room.trvs.length
+			? room.trvs
+			: ([zoneFor(room, $settings.entities)].filter((id) => !!id) as string[]);
+
+	/* a target set here shows at once and goes to HA after a short pause, so several taps are one call */
+	let pending = $state<Record<string, number>>({});
+	const timers: Record<string, ReturnType<typeof setTimeout>> = {};
+	function stepTarget(room: Room, current: number | undefined, delta: number) {
+		const entities = targetsOf(room);
+		if (current === undefined || !entities.length) return;
+		const attributes = $states[entities[0]]?.attributes ?? {};
+		const size = Number(attributes.target_temp_step) || 0.5;
+		let next = Math.round((current + delta * size) / size) * size;
+		if (attributes.min_temp !== undefined) next = Math.max(attributes.min_temp, next);
+		if (attributes.max_temp !== undefined) next = Math.min(attributes.max_temp, next);
+		pending[room.id] = next;
+		clearTimeout(timers[room.id]);
+		timers[room.id] = setTimeout(async () => {
+			for (const entity_id of entities)
+				await call('climate', 'set_temperature', { entity_id, temperature: next });
+			// HA's state takes over once it reports the new target
+			setTimeout(() => delete pending[room.id], 4000);
+		}, 900);
+	}
+
 	/** a room's own name, saved when the field is left */
 	async function renameRoom(room: Room, value: string) {
 		const name = value.trim().slice(0, 60);
@@ -169,10 +199,8 @@
 			{@const wet = room.humidity ? lines([room.humidity], 2, H / 2) : undefined}
 			<Panel icon={room.icon || 'mdi:home-thermometer-outline'} title={room.name}>
 				{#snippet head()}
-					{#if reading.heating}<span class="tag heat"
-							><Icon icon="mdi:fire" height="0.9rem" />{$t(
-								reading.byBoiler ? 'room_boiler_heating' : 'room_heating'
-							)}</span
+					{#if reading.controlled && reading.heating}<span class="tag heat"
+							><Icon icon="mdi:fire" height="0.9rem" />{$t('room_heating')}</span
 						>{/if}
 					{#if $alerts.some((alert) => alert.key === `airing|${room.id}`)}<span class="tag air"
 							><Icon icon="mdi:weather-windy" height="0.9rem" />{$t('air_now')}</span
@@ -196,26 +224,23 @@
 						/>
 					</label>
 				{/if}
-				<div class="now">
-					<span class="big">{reading.value ?? '—'}</span><span class="unit">°C</span>
-					<span class="w-dim method"
-						>{$t(`agg_${room.aggregation}` as Key)} · {reading.used.filter((u) => !u.stale)
-							.length}/{reading.used.length}</span
-					>
-				</div>
-				<div class="facts">
-					{#if reading.thermostat !== undefined}
-						<span>
-							{$t('room_thermostat', { t: String(reading.thermostat) })}
-							{#if reading.value !== undefined}
-								{@const diff = Math.round((reading.thermostat - reading.value) * 10) / 10}
-								<span class:w-warn={Math.abs(diff) >= 1}>({diff > 0 ? '+' : ''}{diff})</span>
-							{/if}
+				{@const target = pending[room.id] ?? reading.target}
+				<div class="now" class:old={reading.old}>
+					<span class="big">{reading.value ?? '—'}</span>
+					{#if reading.controlled && reading.heating && target !== undefined && reading.value !== undefined && target > reading.value}
+						<span class="towards" aria-label={$t('room_towards', { t: String(target) })}>
+							<Icon icon="mdi:arrow-right" height="1.3rem" />{target.toFixed(1)}
 						</span>
 					{/if}
-					{#if reading.target !== undefined}<span
-							>{$t('room_target', { t: String(reading.target) })}</span
-						>{/if}
+					<span class="unit">°C</span>
+					{#if reading.used.length > 1}
+						<span class="w-dim method"
+							>{$t(`agg_${room.aggregation}` as Key)} · {reading.used.filter((u) => !u.stale)
+								.length}/{reading.used.length}</span
+						>
+					{/if}
+				</div>
+				<div class="facts">
 					{#if reading.humidity !== undefined}<span
 							>{$t('room_humidity', { h: String(reading.humidity) })}</span
 						>{/if}
@@ -225,48 +250,78 @@
 					{#if room.co2 && numberOf($states[room.co2]) !== undefined}<span
 							>CO₂ {numberOf($states[room.co2])} ppm</span
 						>{/if}
-					{#if reading.value === undefined}<span class="w-warn">{$t('room_no_value')}</span>{/if}
+					{#if reading.thermostat !== undefined && room.trvs.length}
+						<span class="w-dim">
+							{$t('room_thermostat', { t: String(reading.thermostat) })}
+							{#if reading.value !== undefined}
+								{@const diff = Math.round((reading.thermostat - reading.value) * 10) / 10}
+								<span class:w-warn={Math.abs(diff) >= 1}>({diff > 0 ? '+' : ''}{diff})</span>
+							{/if}
+						</span>
+					{/if}
+					{#if reading.old}<span class="w-warn">{$t('room_old')}</span>
+					{:else if reading.value === undefined}<span class="w-warn">{$t('room_no_value')}</span
+						>{/if}
 				</div>
 
-				<table class="w-data">
-					<tbody>
-						{#each reading.used as sensor, index (sensor.entity)}
-							<tr class:stale={sensor.stale}>
-								<td>
-									<span class="swatch" style:background={COLORS[index % COLORS.length]}></span>
-									{@render label(room, sensor.entity)}
-								</td>
-								<td class="num">
-									{sensor.value ?? '—'}°C
-									{#if sensor.stale}<span class="w-warn"> · {$t('stale')}</span>{/if}
-								</td>
-							</tr>
-						{/each}
-						{#if room.humidity}
-							<tr>
-								<td>
-									<span class="swatch" style:background={HUMIDITY}></span>
-									{@render label(room, room.humidity)}
-								</td>
-								<td class="num">{reading.humidity ?? '—'}%</td>
-							</tr>
-						{/if}
-						{#each room.trvs as trv (trv)}
-							<tr>
-								<td class="w-dim">
-									<Icon icon="mdi:radiator" height="0.9rem" />
-									{@render label(room, trv)}
-								</td>
-								<td class="num w-dim">
-									{numberOf($states[trv], 'current_temperature') ?? '—'} → {numberOf(
-										$states[trv],
-										'temperature'
-									) ?? '—'}°C
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
+				{#if reading.controlled && target !== undefined && targetsOf(room).length}
+					<div class="target">
+						<span class="w-dim">{$t('target_temp')}</span>
+						<button
+							class="step"
+							onclick={() => stepTarget(room, target, -1)}
+							aria-label={$t('target_down')}><Icon icon="mdi:minus" height="1.1rem" /></button
+						>
+						<strong>{target.toFixed(1)}°</strong>
+						<button
+							class="step"
+							onclick={() => stepTarget(room, target, 1)}
+							aria-label={$t('target_up')}><Icon icon="mdi:plus" height="1.1rem" /></button
+						>
+					</div>
+				{/if}
+
+				{#if $editMode}
+					<table class="w-data">
+						<tbody>
+							{#each reading.used as sensor, index (sensor.entity)}
+								<tr class:stale={sensor.stale}>
+									<td>
+										<span class="swatch" style:background={COLORS[index % COLORS.length]}></span>
+										{@render label(room, sensor.entity)}
+									</td>
+									<td class="num">
+										{sensor.value ?? '—'}°C
+										{#if sensor.stale}<span class="w-warn"> · {$t('stale')}</span>{/if}
+									</td>
+								</tr>
+							{/each}
+							{#if room.humidity}
+								<tr>
+									<td>
+										<span class="swatch" style:background={HUMIDITY}></span>
+										{@render label(room, room.humidity)}
+									</td>
+									<td class="num">{reading.humidity ?? '—'}%</td>
+								</tr>
+							{/if}
+							{#each room.trvs as trv (trv)}
+								<tr>
+									<td class="w-dim">
+										<Icon icon="mdi:radiator" height="0.9rem" />
+										{@render label(room, trv)}
+									</td>
+									<td class="num w-dim">
+										{numberOf($states[trv], 'current_temperature') ?? '—'} → {numberOf(
+											$states[trv],
+											'temperature'
+										) ?? '—'}°C
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				{/if}
 
 				{#if chart}
 					<svg viewBox="0 0 {W} {H}" role="img" aria-label={$t('last_24h')}>
@@ -283,6 +338,14 @@
 					<div class="range w-dim">
 						<span>{chart.min}°</span><span>{$t('last_24h')}</span><span>{chart.max}°</span>
 					</div>
+					{#if room.sensors.length > 1}
+						<div class="legend">
+							{#each room.sensors as id, index (id)}
+								<span><i style:background={COLORS[index % COLORS.length]}></i>{name(room, id)}</span
+								>
+							{/each}
+						</div>
+					{/if}
 				{/if}
 				{#if wet}
 					<svg
@@ -364,6 +427,78 @@
 
 	.unit {
 		opacity: 0.7;
+	}
+
+	.now.old .big {
+		opacity: 0.6;
+	}
+
+	.towards {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.15rem;
+		margin-left: 0.4rem;
+		font-size: 1.5rem;
+		font-weight: 300;
+		color: #ffb48f;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.target {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		margin: 0.2rem 0 0.4rem;
+	}
+
+	.target .w-dim {
+		margin-right: auto;
+		font-size: 0.88rem;
+	}
+
+	.target strong {
+		min-width: 3.2rem;
+		text-align: center;
+		font-size: 1.2rem;
+		font-weight: 400;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.step {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.2rem;
+		height: 2.2rem;
+		border-radius: 50%;
+		border: 1px solid rgba(255, 255, 255, 0.18);
+		background: rgba(255, 255, 255, 0.08);
+		color: inherit;
+		cursor: pointer;
+	}
+
+	.step:hover {
+		background: rgba(255, 255, 255, 0.16);
+	}
+
+	.legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.2rem 0.9rem;
+		margin-top: 0.3rem;
+		font-size: 0.78rem;
+	}
+
+	.legend span {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+	}
+
+	.legend i {
+		width: 0.6rem;
+		height: 0.6rem;
+		border-radius: 2px;
 	}
 
 	.method {

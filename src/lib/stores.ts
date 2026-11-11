@@ -1,6 +1,6 @@
 import { derived, get, writable } from 'svelte/store';
 import { translate, type Key } from '$lib/i18n';
-import { roomReading, houseTemperature } from '$lib/rooms';
+import { roomReading, houseTemperature, zoneFor } from '$lib/rooms';
 import {
 	DEFAULT_SETTINGS,
 	type Alert,
@@ -38,7 +38,7 @@ export const rooms = derived([settings, states, now], ([$settings, $states, $now
 			$states,
 			$now,
 			$settings.staleMinutes,
-			room.trvs.length ? undefined : $settings.entities.zone
+			zoneFor(room, $settings.entities)
 		)
 	}))
 );
