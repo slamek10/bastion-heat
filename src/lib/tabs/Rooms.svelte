@@ -85,9 +85,19 @@
 		};
 	}
 
-	/** the user's name for a sensor, else HA's */
-	const name = (room: Room, id: string) =>
-		room.labels?.[id] || $states[id]?.attributes?.friendly_name || id;
+	/**
+	 * The user's name for a sensor, else a plain one by what it measures:
+	 * Temperatura / Vlažnost / Ventil, numbered when a room has several.
+	 */
+	function defaultName(room: Room, id: string) {
+		const numbered = (key: Key, list: string[]) =>
+			list.length > 1 ? `${$t(key)} ${list.indexOf(id) + 1}` : $t(key);
+		if (room.sensors.includes(id)) return numbered('label_temperature', room.sensors);
+		if (room.trvs.includes(id)) return numbered('label_valve', room.trvs);
+		if (id === room.humidity) return $t('label_humidity');
+		return $states[id]?.attributes?.friendly_name || id;
+	}
+	const name = (room: Room, id: string) => room.labels?.[id] || defaultName(room, id);
 
 	let editing = $state<string | undefined>();
 	let draft = $state('');
@@ -111,7 +121,7 @@
 		if (!$editMode) editing = undefined;
 	});
 
-	/** an empty name goes back to Home Assistant's */
+	/** an empty name goes back to the default (Temperatura, Vlažnost, Ventil) */
 	async function rename(room: Room, id: string) {
 		editing = undefined;
 		const labels = { ...room.labels };
@@ -133,11 +143,7 @@
 			}}
 		>
 			<!-- svelte-ignore a11y_autofocus -->
-			<input
-				bind:value={draft}
-				placeholder={$states[id]?.attributes?.friendly_name ?? id}
-				autofocus
-			/>
+			<input bind:value={draft} placeholder={defaultName(room, id)} autofocus />
 			<button class="w-pill small">{$t('save')}</button>
 		</form>
 	{:else}
