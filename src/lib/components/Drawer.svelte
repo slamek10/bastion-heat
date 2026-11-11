@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { t } from '$lib/stores';
+	import { editMode, t, tab } from '$lib/stores';
 	import Icon from '@iconify/svelte';
 	import { slide } from 'svelte/transition';
 
@@ -14,6 +14,19 @@
 <!-- bastion-ha's drawer: actions on the left, Postavke on the right next to the menu button -->
 <header id="drawer" transition:slide={{ duration: 300 }}>
 	<div class="grid">
+		<button
+			class="button"
+			class:active={$editMode}
+			onclick={() => {
+				$editMode = !$editMode;
+				// names are edited in Sobe
+				if ($editMode) $tab = 'rooms';
+			}}
+		>
+			<Icon icon={$editMode ? 'mdi:check' : 'mdi:pencil-outline'} height="1.25rem" />
+			<span>{$editMode ? $t('done') : $t('edit')}</span>
+		</button>
+
 		<button class="button" onclick={logout}>
 			<Icon icon="mdi:logout" height="1.25rem" />
 			<span>{$t('logout')}</span>
@@ -56,6 +69,11 @@
 		text-decoration: none;
 		cursor: pointer;
 		white-space: nowrap;
+	}
+
+	.button.active {
+		background: var(--home-card-on);
+		color: #2a1a24;
 	}
 
 	/* pushed right, ends where the header's menu button is */

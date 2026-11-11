@@ -5,7 +5,7 @@
 	 * the target, heating, a window open, humidity, and 24 hours of each
 	 * sensor. Line colors: the categorical slots 1-3 for a dark surface.
 	 */
-	import { alerts, rooms, saveSettings, settings, states, t } from '$lib/stores';
+	import { alerts, editMode, rooms, saveSettings, settings, states, t } from '$lib/stores';
 	import { dewPoint } from '$lib/comfort';
 	import type { Room } from '$lib/types';
 	import { numberOf } from '$lib/rooms';
@@ -97,6 +97,20 @@
 		draft = room.labels?.[id] ?? '';
 	}
 
+	/** a room's own name, saved when the field is left */
+	async function renameRoom(room: Room, value: string) {
+		const name = value.trim().slice(0, 60);
+		if (!name || name === room.name) return;
+		await saveSettings({
+			rooms: $settings.rooms.map((entry) => (entry.id === room.id ? { ...entry, name } : entry))
+		}).catch(() => {});
+	}
+
+	/* leaving edit mode drops an open rename */
+	$effect(() => {
+		if (!$editMode) editing = undefined;
+	});
+
 	/** an empty name goes back to Home Assistant's */
 	async function rename(room: Room, id: string) {
 		editing = undefined;
@@ -128,14 +142,14 @@
 		</form>
 	{:else}
 		<span class="label">{name(room, id)}</span>
-		<button
-			class="pencil"
-			onclick={() => startRename(room, id)}
-			aria-label={$t('rename')}
-			title={$t('rename')}
-		>
-			<Icon icon="mdi:pencil-outline" height="0.85rem" />
-		</button>
+		{#if $editMode}<button
+				class="pencil"
+				onclick={() => startRename(room, id)}
+				aria-label={$t('rename')}
+				title={$t('rename')}
+			>
+				<Icon icon="mdi:pencil-outline" height="0.85rem" />
+			</button>{/if}
 	{/if}
 {/snippet}
 
@@ -163,6 +177,17 @@
 						>{/if}
 				{/snippet}
 
+				{#if $editMode}
+					<label class="room-name">
+						<span class="w-dim">{$t('room_rename')}</span>
+						<input
+							value={room.name}
+							maxlength="60"
+							onchange={(event) => renameRoom(room, event.currentTarget.value)}
+							onkeydown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
+						/>
+					</label>
+				{/if}
 				<div class="now">
 					<span class="big">{reading.value ?? '—'}</span><span class="unit">°C</span>
 					<span class="w-dim method"
@@ -362,6 +387,26 @@
 	.pencil:hover {
 		opacity: 1;
 		background: rgba(255, 255, 255, 0.1);
+	}
+
+	.room-name {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		margin-bottom: 0.6rem;
+		font-size: 0.85rem;
+	}
+
+	.room-name input {
+		flex: 1;
+		min-width: 0;
+		padding: 0.35rem 0.6rem;
+		border-radius: 0.5rem;
+		border: 1px solid rgba(255, 255, 255, 0.3);
+		background: rgba(0, 0, 0, 0.3);
+		color: white;
+		font-family: inherit;
+		font-size: 0.95rem;
 	}
 
 	.rename {

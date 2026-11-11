@@ -17,6 +17,8 @@ export const states = writable<Record<string, HaState>>({});
 export const status = writable<Status>({ ha: false });
 export const tab = writable<Tab>('overview');
 export const showDrawer = writable(false);
+/** Uredi in the drawer: names of rooms and sensors become editable */
+export const editMode = writable(false);
 /** airing advice and cold warnings, from the server */
 export const alerts = writable<Alert[]>([]);
 /** a clock that moves every 30 s, so readings age on the page */

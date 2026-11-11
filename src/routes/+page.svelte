@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { alerts, connectStream, settings, showDrawer, states, tab } from '$lib/stores';
+	import { alerts, connectStream, editMode, settings, showDrawer, states, tab } from '$lib/stores';
 	import Theme from '$lib/components/Theme.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
@@ -29,6 +29,11 @@
 	onMount(() => {
 		if (data.needsLogin) return;
 		return connectStream();
+	});
+
+	// editing belongs to Sobe; another tab ends it
+	$effect(() => {
+		if ($tab !== 'rooms') $editMode = false;
 	});
 </script>
 
