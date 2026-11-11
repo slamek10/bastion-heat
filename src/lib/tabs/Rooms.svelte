@@ -189,7 +189,7 @@
 	{/if}
 {/snippet}
 
-<main class="page">
+<section class="rooms" aria-label={$t('rooms_title')}>
 	{#if !$rooms.length}
 		<p class="w-card">{$t('no_rooms')}</p>
 	{/if}
@@ -369,11 +369,11 @@
 			</Panel>
 		{/each}
 	</div>
-</main>
+</section>
 
 <style>
-	.page {
-		padding: 0 2rem calc(7rem + env(safe-area-inset-bottom));
+	.rooms {
+		margin-top: 1rem;
 		color: white;
 	}
 
@@ -597,10 +597,6 @@
 	}
 
 	@media (max-width: 768px) {
-		.page {
-			padding: 0 0.75rem calc(7rem + env(safe-area-inset-bottom));
-		}
-
 		.panels {
 			grid-template-columns: minmax(0, 1fr);
 		}

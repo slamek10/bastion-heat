@@ -11,7 +11,6 @@
 	import SettingsModal from '$lib/components/SettingsModal.svelte';
 	import Overview from '$lib/tabs/Overview.svelte';
 	import Curve from '$lib/tabs/Curve.svelte';
-	import Rooms from '$lib/tabs/Rooms.svelte';
 	import Analysis from '$lib/tabs/Analysis.svelte';
 
 	let { data } = $props();
@@ -31,9 +30,9 @@
 		return connectStream();
 	});
 
-	// editing belongs to Sobe; another tab ends it
+	// editing belongs to the rooms in Pregled; another tab ends it
 	$effect(() => {
-		if ($tab !== 'rooms') $editMode = false;
+		if ($tab !== 'overview') $editMode = false;
 	});
 </script>
 
@@ -58,8 +57,6 @@
 			<Overview />
 		{:else if $tab === 'curve'}
 			<Curve />
-		{:else if $tab === 'rooms'}
-			<Rooms />
 		{:else}
 			<Analysis />
 		{/if}

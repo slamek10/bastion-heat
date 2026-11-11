@@ -6,7 +6,6 @@
 	const tabs: { id: Tab; icon: string; key: Key }[] = [
 		{ id: 'overview', icon: 'mdi:radiator', key: 'tab_overview' },
 		{ id: 'curve', icon: 'mdi:chart-bell-curve-cumulative', key: 'tab_curve' },
-		{ id: 'rooms', icon: 'mdi:home-thermometer-outline', key: 'tab_rooms' },
 		{ id: 'analysis', icon: 'mdi:chart-box-outline', key: 'tab_analysis' }
 	];
 </script>
@@ -16,7 +15,7 @@
 		<button class:active={$tab === item.id} onclick={() => ($tab = item.id)}>
 			<span class="icon">
 				<Icon icon={item.icon} height="1.35rem" />
-				{#if item.id === 'rooms' && $rooms.some((entry) => entry.reading.windowOpen)}
+				{#if item.id === 'overview' && $rooms.some((entry) => entry.reading.windowOpen)}
 					<span class="badge">!</span>
 				{/if}
 			</span>

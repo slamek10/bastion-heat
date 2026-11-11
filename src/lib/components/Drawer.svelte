@@ -19,8 +19,8 @@
 			class:active={$editMode}
 			onclick={() => {
 				$editMode = !$editMode;
-				// names are edited in Sobe
-				if ($editMode) $tab = 'rooms';
+				// rooms live in Pregled
+				if ($editMode) $tab = 'overview';
 			}}
 		>
 			<Icon icon={$editMode ? 'mdi:check' : 'mdi:pencil-outline'} height="1.25rem" />

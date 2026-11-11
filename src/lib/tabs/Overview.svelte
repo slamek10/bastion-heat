@@ -4,11 +4,12 @@
 	 * the AC, water pressure and presets, plus the rooms with their combined
 	 * temperatures. Changes go through /_api/ha/call.
 	 */
-	import { alerts, call, house, rooms, settings, states, status, t, tab } from '$lib/stores';
+	import { alerts, call, house, settings, states, status, t } from '$lib/stores';
 	import type { Key } from '$lib/i18n';
 	import { numberOf } from '$lib/rooms';
 	import { pressureState, targetFlow } from '$lib/curve';
 	import Panel from '$lib/components/Panel.svelte';
+	import Rooms from '$lib/tabs/Rooms.svelte';
 	import Icon from '@iconify/svelte';
 
 	let e = $derived($settings.entities);
@@ -279,29 +280,9 @@
 				</p>
 			</Panel>
 		{/if}
-
-		<Panel icon="mdi:home-thermometer-outline" title={$t('rooms_title')} wide>
-			{#snippet head()}
-				<button class="w-pill small" onclick={() => ($tab = 'rooms')}>{$t('tab_rooms')} →</button>
-			{/snippet}
-			{#if !$rooms.length}
-				<p class="w-dim">{$t('no_rooms')}</p>
-			{:else}
-				<div class="room-row">
-					{#each $rooms as { room, reading } (room.id)}
-						<div class="room" class:heating={reading.heating} class:window={reading.windowOpen}>
-							<Icon icon={room.icon || 'mdi:home-thermometer-outline'} height="1.2rem" />
-							<span class="name">{room.name}</span>
-							<strong>{reading.value ?? '—'}°C</strong>
-							{#if reading.target !== undefined}<span class="w-dim">→ {reading.target}</span>{/if}
-							{#if reading.heating}<Icon icon="mdi:fire" height="1rem" class="flame" />{/if}
-							{#if reading.windowOpen}<Icon icon="mdi:window-open-variant" height="1rem" />{/if}
-						</div>
-					{/each}
-				</div>
-			{/if}
-		</Panel>
 	</div>
+
+	<Rooms />
 </main>
 
 <style>
@@ -462,42 +443,6 @@
 	.small {
 		font-size: 0.82rem;
 		margin: 0;
-	}
-
-	.room-row {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-		gap: 0.5rem;
-	}
-
-	.room {
-		display: flex;
-		align-items: center;
-		gap: 0.45rem;
-		padding: 0.55rem 0.75rem;
-		border-radius: 0.9rem;
-		background: rgba(255, 255, 255, 0.06);
-		font-size: 0.92rem;
-	}
-
-	.room .name {
-		flex: 1;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.room.heating {
-		box-shadow: inset 3px 0 0 #d95926;
-	}
-
-	.room.window {
-		box-shadow: inset 3px 0 0 #3987e5;
-	}
-
-	.room :global(.flame) {
-		color: #ff9b6a;
 	}
 
 	@media (max-width: 768px) {
