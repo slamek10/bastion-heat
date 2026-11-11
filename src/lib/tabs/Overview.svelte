@@ -4,7 +4,7 @@
 	 * the AC, water pressure and presets, plus the rooms with their combined
 	 * temperatures. Changes go through /_api/ha/call.
 	 */
-	import { alerts, call, house, settings, states, status, t } from '$lib/stores';
+	import { alerts, brain, call, house, settings, states, status, t } from '$lib/stores';
 	import type { Key } from '$lib/i18n';
 	import { numberOf } from '$lib/rooms';
 	import { pressureState, targetFlow } from '$lib/curve';
@@ -90,6 +90,17 @@
 			/boost|high_demand|performance/i.test(m)
 		)
 	);
+
+	/** the brain moves the zone itself: a change here lasts until its next round */
+	let brainZone = $derived(
+		!!$brain?.enabled && $settings.brain.house && $brain.plans.some((plan) => plan.managed)
+	);
+
+	const time = (at: number) =>
+		new Date(at).toLocaleTimeString($settings.locale === 'hr' ? 'hr-HR' : 'en-GB', {
+			hour: '2-digit',
+			minute: '2-digit'
+		});
 
 	const AC_MODES = [
 		{ mode: 'cool', icon: 'mdi:snowflake', key: 'ac_cool' },
@@ -188,6 +199,11 @@
 						{/if}
 					{/each}
 				</div>
+				{#if brainZone}
+					<p class="w-dim small brain-note">
+						<Icon icon="mdi:robot-outline" height="0.95rem" />{$t('brain_zone_note')}
+					</p>
+				{/if}
 				{#if flow !== undefined}
 					<p class="flow">
 						{$t('flow')} <strong>{flow}°C</strong>
@@ -280,12 +296,92 @@
 				</p>
 			</Panel>
 		{/if}
+
+		{#if $brain}
+			<Panel icon="mdi:robot-outline" title={$t('brain_title')}>
+				{#snippet head()}
+					<span class="tag" class:on={$brain.enabled && !$brain.dryRun} class:trial={$brain.dryRun}
+						>{!$brain.enabled
+							? $t('brain_state_off')
+							: $brain.dryRun
+								? $t('brain_trial')
+								: $t('brain_state_on')}</span
+					>
+				{/snippet}
+				{#if !$brain.enabled}
+					<p class="w-dim small">{$t('brain_off_hint')}</p>
+				{:else}
+					{#if $brain.dryRun}<p class="w-dim small">{$t('brain_trial_hint')}</p>{/if}
+					{#if !$brain.plans.some((plan) => plan.managed)}
+						<p class="w-dim small">{$t('brain_no_schedules')}</p>
+					{/if}
+					{#if $brain.recent.length}
+						<ul class="decisions">
+							{#each $brain.recent.slice(0, 8) as item (item.at + item.entity)}
+								<li class:failed={!!item.error}>
+									<span class="w-dim">{time(item.at)}</span>
+									<span
+										>{$t(item.reason as Key, item.vars)}{#if item.error}
+											· {item.error}{/if}</span
+									>
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<p class="w-dim small">{$t('brain_nothing_yet')}</p>
+					{/if}
+				{/if}
+			</Panel>
+		{/if}
 	</div>
 
 	<Rooms />
 </main>
 
 <style>
+	.brain-note {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		margin: 0.6rem 0 0;
+	}
+
+	.tag {
+		padding: 0.15rem 0.55rem;
+		border-radius: 1rem;
+		font-size: 0.75rem;
+		background: rgba(255, 255, 255, 0.1);
+	}
+
+	.tag.on {
+		background: rgba(25, 158, 112, 0.3);
+	}
+
+	.tag.trial {
+		background: rgba(255, 210, 122, 0.18);
+		color: #ffd27a;
+	}
+
+	.decisions {
+		list-style: none;
+		margin: 0.3rem 0 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.45rem;
+		font-size: 0.85rem;
+	}
+
+	.decisions li {
+		display: grid;
+		grid-template-columns: 3rem 1fr;
+		gap: 0.4rem;
+	}
+
+	.decisions li.failed {
+		color: #ff9a9a;
+	}
+
 	.alerts {
 		list-style: none;
 		margin: 0 0 1rem;

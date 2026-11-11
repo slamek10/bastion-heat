@@ -5,7 +5,18 @@
 	 * the target, heating, a window open, humidity, and 24 hours of each
 	 * sensor. Line colors: the categorical slots 1-3 for a dark surface.
 	 */
-	import { alerts, call, editMode, rooms, saveSettings, settings, states, t } from '$lib/stores';
+	import {
+		alerts,
+		brain,
+		call,
+		editMode,
+		override,
+		rooms,
+		saveSettings,
+		settings,
+		states,
+		t
+	} from '$lib/stores';
 	import { dewPoint } from '$lib/comfort';
 	import type { Room } from '$lib/types';
 	import { numberOf, zoneFor } from '$lib/rooms';
@@ -119,7 +130,30 @@
 	/* a target set here shows at once and goes to HA after a short pause, so several taps are one call */
 	let pending = $state<Record<string, number>>({});
 	const timers: Record<string, ReturnType<typeof setTimeout>> = {};
+	/** the brain's plan for a room it looks after */
+	const planOf = (id: string) =>
+		$brain?.enabled ? $brain.plans.find((plan) => plan.roomId === id && plan.managed) : undefined;
+
+	const clock = (time: number) =>
+		new Date(time).toLocaleString($settings.locale === 'hr' ? 'hr-HR' : 'en-GB', {
+			...(time - Date.now() > 20 * 3_600_000 && { weekday: 'short' }),
+			hour: '2-digit',
+			minute: '2-digit'
+		});
+
 	function stepTarget(room: Room, current: number | undefined, delta: number) {
+		// a room the brain looks after: the change holds until its schedule next changes
+		if (planOf(room.id)) {
+			if (current === undefined) return;
+			const next = Math.min(30, Math.max(5, Math.round((current + delta * 0.5) * 2) / 2));
+			pending[room.id] = next;
+			clearTimeout(timers[room.id]);
+			timers[room.id] = setTimeout(async () => {
+				await override(room.id, next);
+				delete pending[room.id];
+			}, 900);
+			return;
+		}
 		const entities = targetsOf(room);
 		if (current === undefined || !entities.length) return;
 		const attributes = $states[entities[0]]?.attributes ?? {};
@@ -224,10 +258,12 @@
 						/>
 					</label>
 				{/if}
-				{@const target = pending[room.id] ?? reading.target}
+				{@const plan = planOf(room.id)}
+				{@const target = pending[room.id] ?? (plan ? plan.target : reading.target)}
+				{@const warming = plan ? plan.calling : reading.controlled && reading.heating}
 				<div class="now" class:old={reading.old}>
 					<span class="big">{reading.value ?? '—'}</span>
-					{#if reading.controlled && reading.heating && target !== undefined && reading.value !== undefined && target > reading.value}
+					{#if warming && target !== undefined && reading.value !== undefined && target > reading.value}
 						<span class="towards" aria-label={$t('room_towards', { t: String(target) })}>
 							<Icon icon="mdi:arrow-right" height="1.3rem" />{target.toFixed(1)}
 						</span>
@@ -264,7 +300,7 @@
 						>{/if}
 				</div>
 
-				{#if reading.controlled && target !== undefined && targetsOf(room).length}
+				{#if target !== undefined && (plan || (reading.controlled && targetsOf(room).length))}
 					<div class="target">
 						<span class="w-dim">{$t('target_temp')}</span>
 						<button
@@ -279,6 +315,35 @@
 							aria-label={$t('target_up')}><Icon icon="mdi:plus" height="1.1rem" /></button
 						>
 					</div>
+				{/if}
+				{#if plan}
+					<p class="plan">
+						<Icon
+							icon={plan.source === 'override'
+								? 'mdi:hand-back-right-outline'
+								: 'mdi:calendar-clock'}
+							height="0.95rem"
+						/>
+						<span
+							>{plan.source === 'override'
+								? $t('plan_override')
+								: $t('plan_schedule')}{#if plan.until}
+								{$t('plan_until', { time: clock(plan.until) })}{/if}</span
+						>
+						<span class="w-dim"
+							>· {plan.reason === 'brain_window'
+								? $t('plan_window')
+								: plan.calling
+									? $t('plan_calling')
+									: $t('plan_warm')}</span
+						>
+						{#if plan.source === 'override'}
+							<button class="w-pill small" onclick={() => override(room.id, null)}
+								>{$t('plan_back')}</button
+							>
+						{/if}
+						{#if $brain?.dryRun}<span class="tag trial">{$t('brain_trial')}</span>{/if}
+					</p>
 				{/if}
 
 				{#if $editMode}
@@ -375,6 +440,20 @@
 	.rooms {
 		margin-top: 1rem;
 		color: white;
+	}
+
+	.plan {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.4rem;
+		margin: 0.2rem 0 0.6rem;
+		font-size: 0.85rem;
+	}
+
+	.tag.trial {
+		background: rgba(255, 210, 122, 0.18);
+		color: #ffd27a;
 	}
 
 	.panels {

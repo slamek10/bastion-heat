@@ -43,6 +43,44 @@ export interface Room {
 	labels?: Record<string, string>;
 }
 
+/** a stretch of the week at one temperature; days 1 = Monday … 7 = Sunday, "HH:MM" */
+export interface ScheduleBlock {
+	days: number[];
+	from: string;
+	to: string;
+	temp: number;
+}
+
+/** a room's week: the blocks, and the base temperature between them */
+export interface RoomSchedule {
+	enabled: boolean;
+	base: number;
+	blocks: ScheduleBlock[];
+}
+
+/** the brain: each part has its own switch, and it starts in the trial mode */
+export interface BrainSettings {
+	enabled: boolean;
+	/** decides and writes down what it would do, sends nothing */
+	dryRun: boolean;
+	/** °C below the target before a warm room asks for heat again */
+	hysteresis: number;
+	/** at most one command per device in this many minutes (open windows and frost excepted) */
+	minMinutes: number;
+	/** a valve's setpoint when its room is warm (its lowest is used if higher) */
+	closedTemp: number;
+	/** an open valve is set this much above the room's target */
+	openOffset: number;
+	/** the main zone when no room asks for heat */
+	ecoTemp: number;
+	/** the main zone follows the rooms */
+	house: boolean;
+	/** an open window closes the room's valves */
+	windows: boolean;
+	/** no room is ever aimed lower */
+	frostTemp: number;
+}
+
 export interface PresetTarget {
 	entity_id: string;
 	temperature?: number;
@@ -88,6 +126,9 @@ export interface Settings {
 	hddBase: number;
 	/** the weekly report: day (1 = Monday … 7 = Sunday) and hour */
 	report: { enabled: boolean; weekday: number; hour: number };
+	brain: BrainSettings;
+	/** weekly schedules by room id */
+	schedules: Record<string, RoomSchedule>;
 }
 
 /** defaults from Bastion HA's heating card, so the first start shows the same house */
@@ -147,7 +188,20 @@ export const DEFAULT_SETTINGS: Settings = {
 	heatingEnergy: [],
 	energyPrice: 0,
 	hddBase: 18,
-	report: { enabled: true, weekday: 1, hour: 8 }
+	report: { enabled: true, weekday: 1, hour: 8 },
+	brain: {
+		enabled: false,
+		dryRun: true,
+		hysteresis: 0.3,
+		minMinutes: 15,
+		closedTemp: 5,
+		openOffset: 2,
+		ecoTemp: 17,
+		house: true,
+		windows: true,
+		frostTemp: 7
+	},
+	schedules: {}
 };
 
 /** an entity as Home Assistant reports it */
@@ -202,7 +256,39 @@ export interface Alert {
 	since: number;
 }
 
+/** one thing the brain did, or in the trial mode would have done */
+export interface Decision {
+	at: number;
+	entity: string;
+	kind: 'trv' | 'zone';
+	roomId?: string;
+	temperature: number;
+	reason: string;
+	vars: Record<string, string>;
+	dry: boolean;
+	error?: string;
+}
+
+export interface BrainPlan {
+	roomId: string;
+	managed: boolean;
+	target?: number;
+	source?: 'schedule' | 'override';
+	until?: number;
+	calling: boolean;
+	reason: string;
+	vars: Record<string, string>;
+}
+
+export interface BrainStatus {
+	enabled: boolean;
+	dryRun: boolean;
+	plans: BrainPlan[];
+	recent: Decision[];
+}
+
 export type LiveMessage =
+	| { kind: 'brain'; brain: BrainStatus }
 	| { kind: 'alerts'; alerts: Alert[] }
 	| { kind: 'status'; status: Status }
 	| { kind: 'states'; states: Record<string, HaState> }

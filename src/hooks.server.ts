@@ -5,6 +5,7 @@ import { startSummary } from '$lib/server/heat';
 import { startChecks } from '$lib/server/checks';
 import { startReports } from '$lib/server/report';
 import { startVaillant } from '$lib/server/vaillant';
+import { startBrain } from '$lib/server/brain';
 
 if (!missingConfig().length) {
 	startHa();
@@ -12,6 +13,7 @@ if (!missingConfig().length) {
 	startChecks();
 	startReports();
 	startVaillant();
+	startBrain();
 }
 
 const OPEN = ['/_api/health', '/_api/login'];

@@ -1,11 +1,14 @@
 import { json } from '@sveltejs/kit';
 import { loadSettings, saveSettings } from '$lib/server/store';
 import { refreshWatched } from '$lib/server/heat';
+import { settingsChanged } from '$lib/server/brain';
 import {
 	DEFAULT_SETTINGS,
 	type Aggregation,
 	type Preset,
+	type BrainSettings,
 	type Room,
+	type RoomSchedule,
 	type Settings
 } from '$lib/types';
 
@@ -81,12 +84,73 @@ function cleanPreset(input: any, index: number): Preset | undefined {
 	};
 }
 
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$|^24:00$/;
+const temp = (value: unknown, fallback: number) =>
+	Math.round(range(value, 5, 30, fallback) * 10) / 10;
+
+/** blocks with days, a start before the end and a temperature; at most 30 per room */
+function cleanSchedule(input: any): RoomSchedule | undefined {
+	if (!input || typeof input !== 'object') return undefined;
+	const blocks = (Array.isArray(input.blocks) ? input.blocks : [])
+		.map((block: any) => ({
+			days: [
+				...new Set<number>(
+					(Array.isArray(block?.days) ? block.days : [])
+						.map(Number)
+						.filter((day: number) => Number.isInteger(day) && day >= 1 && day <= 7)
+				)
+			].sort(),
+			from: typeof block?.from === 'string' && TIME.test(block.from) ? block.from : '',
+			to: typeof block?.to === 'string' && TIME.test(block.to) ? block.to : '',
+			temp: temp(block?.temp, 20)
+		}))
+		.filter(
+			(block: { days: number[]; from: string; to: string }) =>
+				block.days.length && block.from && block.to && block.from < block.to
+		)
+		.slice(0, 30);
+	return { enabled: flag(input.enabled, false), base: temp(input.base, 19), blocks };
+}
+
+function cleanSchedules(input: unknown, rooms: Room[], before: Settings['schedules']) {
+	if (!input || typeof input !== 'object') return before;
+	const ids = new Set(rooms.map((room) => room.id));
+	return Object.fromEntries(
+		Object.entries(input as Record<string, unknown>)
+			.filter(([id]) => ids.has(id))
+			.map(([id, value]) => [id, cleanSchedule(value)])
+			.filter(([, value]) => value)
+	) as Settings['schedules'];
+}
+
+function cleanBrain(input: any, before: BrainSettings): BrainSettings {
+	const b = input && typeof input === 'object' ? input : {};
+	return {
+		enabled: flag(b.enabled, before.enabled),
+		dryRun: flag(b.dryRun, before.dryRun),
+		hysteresis: range(b.hysteresis, 0.1, 2, before.hysteresis),
+		minMinutes: Math.round(range(b.minMinutes, 5, 120, before.minMinutes)),
+		closedTemp: range(b.closedTemp, 4, 16, before.closedTemp),
+		openOffset: range(b.openOffset, 0, 6, before.openOffset),
+		ecoTemp: range(b.ecoTemp, 5, 22, before.ecoTemp),
+		house: flag(b.house, before.house),
+		windows: flag(b.windows, before.windows),
+		frostTemp: range(b.frostTemp, 4, 12, before.frostTemp)
+	};
+}
+
 export const GET = async () => json(await loadSettings());
 
 export async function PUT({ request }) {
 	const body = (await request.json().catch(() => ({}))) as Partial<Settings>;
 	const before = await loadSettings();
 	const e = (body.entities ?? before.entities) as unknown as Record<string, unknown>;
+	const rooms = Array.isArray(body.rooms)
+		? body.rooms
+				.map(cleanRoom)
+				.filter((room): room is Room => !!room)
+				.slice(0, 40)
+		: before.rooms;
 	const settings: Settings = {
 		locale: body.locale === 'en' ? 'en' : 'hr',
 		theme:
@@ -115,12 +179,7 @@ export async function PUT({ request }) {
 					.filter(([, value]) => value)
 			)
 		},
-		rooms: Array.isArray(body.rooms)
-			? body.rooms
-					.map(cleanRoom)
-					.filter((room): room is Room => !!room)
-					.slice(0, 40)
-			: before.rooms,
+		rooms,
 		presets: Array.isArray(body.presets)
 			? body.presets
 					.map(cleanPreset)
@@ -152,9 +211,16 @@ export async function PUT({ request }) {
 			enabled: flag(body.report?.enabled, before.report.enabled),
 			weekday: Math.round(range(body.report?.weekday, 1, 7, before.report.weekday)),
 			hour: Math.round(range(body.report?.hour, 0, 23, before.report.hour))
-		}
+		},
+		brain: cleanBrain(body.brain, before.brain),
+		schedules: cleanSchedules(body.schedules, rooms, before.schedules)
 	};
 	await saveSettings(settings);
 	await refreshWatched();
+	if (
+		JSON.stringify([settings.brain, settings.schedules]) !==
+		JSON.stringify([before.brain, before.schedules])
+	)
+		await settingsChanged();
 	return json(settings);
 }

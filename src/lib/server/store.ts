@@ -30,7 +30,9 @@ export async function loadSettings(): Promise<Settings> {
 		...DEFAULT_SETTINGS,
 		...saved,
 		entities: { ...DEFAULT_SETTINGS.entities, ...saved.entities },
-		report: { ...DEFAULT_SETTINGS.report, ...saved.report }
+		report: { ...DEFAULT_SETTINGS.report, ...saved.report },
+		brain: { ...DEFAULT_SETTINGS.brain, ...saved.brain },
+		schedules: { ...saved.schedules }
 	};
 }
 export const saveSettings = (settings: Settings) => write('settings.json', settings);

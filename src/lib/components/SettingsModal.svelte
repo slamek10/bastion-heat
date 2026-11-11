@@ -1,6 +1,13 @@
 <script lang="ts">
 	import { ask, question, saveSettings, settings, t, toast } from '$lib/stores';
-	import type { Room, Settings, SystemEntities } from '$lib/types';
+	import type {
+		BrainSettings,
+		Room,
+		RoomSchedule,
+		ScheduleBlock,
+		Settings,
+		SystemEntities
+	} from '$lib/types';
 	import type { Key } from '$lib/i18n';
 	import MultiSelect from '$lib/components/MultiSelect.svelte';
 	import Icon from '@iconify/svelte';
@@ -13,6 +20,7 @@
 	const TABS: { id: string; icon: string; title: Key; hint: Key }[] = [
 		{ id: 'rooms', icon: 'mdi:home-thermometer-outline', title: 'tab_rooms', hint: 'rooms_hint' },
 		{ id: 'system', icon: 'mdi:radiator', title: 'system', hint: 'set_system_hint' },
+		{ id: 'brain', icon: 'mdi:robot-outline', title: 'brain_title', hint: 'set_brain_hint' },
 		{ id: 'alerts', icon: 'mdi:alert-outline', title: 'set_alerts', hint: 'set_alerts_hint' },
 		{
 			id: 'energy',
@@ -204,6 +212,77 @@
 		return () => clearInterval(timer);
 	});
 
+	/* the brain: switches and numbers save at once, the schedules with one button */
+	const setBrain = (patch: Partial<BrainSettings>) =>
+		set({ brain: { ...$settings.brain, ...patch } });
+
+	function setBrainNumber(key: keyof BrainSettings, value: string) {
+		const number = Number(value.replace(',', '.'));
+		if (value.trim() && Number.isFinite(number)) setBrain({ [key]: number });
+	}
+
+	async function setLive(live: boolean) {
+		if (live) {
+			const yes = await ask({
+				title: $t('brain_live_title'),
+				message: $t('brain_live_message'),
+				confirm: $t('brain_live_confirm')
+			});
+			if (!yes) return;
+		}
+		setBrain({ dryRun: !live });
+	}
+
+	// svelte-ignore state_referenced_locally
+	let schedules = $state<Record<string, RoomSchedule>>(structuredClone($settings.schedules));
+	let schedulesChanged = $state(false);
+	let openSchedule = $state<string | undefined>();
+
+	function toggleSchedule(id: string) {
+		schedules[id] ??= {
+			enabled: false,
+			base: 19,
+			blocks: [{ days: [1, 2, 3, 4, 5, 6, 7], from: '06:00', to: '22:00', temp: 21 }]
+		};
+		openSchedule = openSchedule === id ? undefined : id;
+	}
+
+	const changed = () => (schedulesChanged = true);
+
+	function addBlock(schedule: RoomSchedule) {
+		const last = schedule.blocks.at(-1);
+		schedule.blocks.push(
+			last
+				? { ...last, days: [...last.days] }
+				: { days: [1, 2, 3, 4, 5], from: '06:00', to: '08:00', temp: 21 }
+		);
+		changed();
+	}
+
+	function toggleDay(block: ScheduleBlock, day: number) {
+		block.days = block.days.includes(day)
+			? block.days.filter((entry) => entry !== day)
+			: [...block.days, day].sort();
+		changed();
+	}
+
+	const tempOf = (value: string, fallback: number) => {
+		const number = Number(value.replace(',', '.'));
+		return Number.isFinite(number) && value.trim() ? Math.min(30, Math.max(5, number)) : fallback;
+	};
+
+	/** a block that ends before it starts is dropped by the server: say so first */
+	const badBlock = (block: ScheduleBlock) => !block.days.length || block.from >= block.to;
+
+	async function saveSchedules() {
+		await saveSettings({ schedules }).catch(() => {});
+		schedules = structuredClone($settings.schedules);
+		schedulesChanged = false;
+		toast({ title: $t('saved'), message: '' });
+	}
+
+	const shortDay = (day: number) => $t(`weekday_${day}` as Key).slice(0, 3);
+
 	let sending = $state(false);
 	async function test() {
 		sending = true;
@@ -279,7 +358,9 @@
 				<header class="content-head" in:fade={{ duration: 150 }}>
 					<h2>{$t(active.title)}</h2>
 					<p>{$t(active.hint)}</p>
-					{#if activeTab !== 'rooms'}<p class="own-save">{$t('settings_saves_itself')}</p>{/if}
+					{#if activeTab !== 'rooms' && activeTab !== 'brain'}<p class="own-save">
+							{$t('settings_saves_itself')}
+						</p>{/if}
 				</header>
 			{/key}
 			<div class="panel">
@@ -412,6 +493,147 @@
 							)}
 						</div>
 					{/each}
+				{:else if activeTab === 'brain'}
+					<label class="switch">
+						<input
+							type="checkbox"
+							checked={$settings.brain.enabled}
+							onchange={(e) => setBrain({ enabled: e.currentTarget.checked })}
+						/>
+						<span>{$t('brain_enabled')}</span>
+					</label>
+					<p class="hint">{$t('brain_enabled_hint')}</p>
+					<div class="field column">
+						<span>{$t('brain_mode')}</span>
+						<div class="segmented">
+							<button class:active={$settings.brain.dryRun} onclick={() => setLive(false)}
+								>{$t('brain_trial')}</button
+							>
+							<button class:active={!$settings.brain.dryRun} onclick={() => setLive(true)}
+								>{$t('brain_live')}</button
+							>
+						</div>
+						<p class="hint">{$t('brain_mode_hint')}</p>
+					</div>
+					<label class="switch">
+						<input
+							type="checkbox"
+							checked={$settings.brain.house}
+							onchange={(e) => setBrain({ house: e.currentTarget.checked })}
+						/>
+						<span>{$t('brain_house')}</span>
+					</label>
+					<p class="hint">{$t('brain_house_hint')}</p>
+					<label class="switch">
+						<input
+							type="checkbox"
+							checked={$settings.brain.windows}
+							onchange={(e) => setBrain({ windows: e.currentTarget.checked })}
+						/>
+						<span>{$t('brain_windows')}</span>
+					</label>
+					{#each [['hysteresis', 'brain_hysteresis'], ['openOffset', 'brain_open_offset'], ['closedTemp', 'brain_closed_temp'], ['ecoTemp', 'brain_eco_temp'], ['frostTemp', 'brain_frost_temp'], ['minMinutes', 'brain_min_minutes']] as const as [key, label] (key)}
+						<div class="field">
+							<span>{$t(label)}</span>
+							<input
+								class="text short"
+								value={$settings.brain[key]}
+								inputmode="decimal"
+								onchange={(e) => setBrainNumber(key, e.currentTarget.value)}
+							/>
+						</div>
+					{/each}
+
+					<h3 class="sub">{$t('schedules')}</h3>
+					<p class="hint">{$t('schedules_hint')}</p>
+					{#each $settings.rooms as room (room.id)}
+						{@const schedule = schedules[room.id]}
+						<div class="rule">
+							<div class="rule-head">
+								<Icon icon={room.icon || 'mdi:home-thermometer-outline'} height="1.3rem" />
+								<button class="rule-title" onclick={() => toggleSchedule(room.id)}>
+									<strong>{room.name}</strong>
+									<span
+										>{schedule?.enabled
+											? $t('schedule_on', { count: String(schedule.blocks.length) })
+											: $t('schedule_off')}</span
+									>
+								</button>
+							</div>
+							{#if openSchedule === room.id && schedule}
+								<div class="rule-body">
+									<label class="switch">
+										<input type="checkbox" bind:checked={schedule.enabled} onchange={changed} />
+										<span>{$t('schedule_enabled')}</span>
+									</label>
+									<div class="field">
+										<span>{$t('schedule_base')}</span>
+										<input
+											class="text short"
+											value={schedule.base}
+											inputmode="decimal"
+											onchange={(e) => (
+												(schedule.base = tempOf(e.currentTarget.value, schedule.base)),
+												changed()
+											)}
+										/>
+									</div>
+									{#each schedule.blocks as block, index (index)}
+										<div class="block" class:bad={badBlock(block)}>
+											<div class="days">
+												{#each [1, 2, 3, 4, 5, 6, 7] as day (day)}
+													<button
+														class:active={block.days.includes(day)}
+														onclick={() => toggleDay(block, day)}>{shortDay(day)}</button
+													>
+												{/each}
+											</div>
+											<div class="times">
+												<input
+													class="text"
+													type="time"
+													bind:value={block.from}
+													onchange={changed}
+													aria-label={$t('schedule_from')}
+												/>
+												<span>–</span>
+												<input
+													class="text"
+													type="time"
+													bind:value={block.to}
+													onchange={changed}
+													aria-label={$t('schedule_to')}
+												/>
+												<input
+													class="text temp"
+													value={block.temp}
+													inputmode="decimal"
+													aria-label={$t('schedule_temp')}
+													onchange={(e) => (
+														(block.temp = tempOf(e.currentTarget.value, block.temp)),
+														changed()
+													)}
+												/><span>°C</span>
+												<button
+													class="icon"
+													onclick={() => (schedule.blocks.splice(index, 1), changed())}
+													aria-label={$t('delete')}
+													><Icon icon="mdi:delete-outline" height="1.1rem" /></button
+												>
+											</div>
+											{#if badBlock(block)}<p class="hint warn">{$t('schedule_bad')}</p>{/if}
+										</div>
+									{/each}
+									<button class="pill small" onclick={() => addBlock(schedule)}
+										><Icon icon="mdi:plus" height="1rem" />{$t('schedule_add')}</button
+									>
+								</div>
+							{/if}
+						</div>
+					{/each}
+					<button class="pill save" disabled={!schedulesChanged} onclick={saveSchedules}
+						>{$t('save')}</button
+					>
 				{:else if activeTab === 'alerts'}
 					<label class="switch">
 						<input
@@ -1005,5 +1227,60 @@
 
 	.text.short {
 		width: 6rem;
+	}
+
+	.sub {
+		margin: 1.4rem 0 0.2rem;
+		font-size: 1.05rem;
+		font-weight: 600;
+	}
+
+	.block {
+		padding: 0.6rem 0;
+		border-top: 1px solid rgba(255, 255, 255, 0.08);
+	}
+
+	.days {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+		margin-bottom: 0.45rem;
+	}
+
+	.days button {
+		padding: 0.3rem 0.55rem;
+		border-radius: 1rem;
+		border: 1px solid rgba(255, 255, 255, 0.18);
+		background: none;
+		color: rgba(255, 255, 255, 0.8);
+		font-family: inherit;
+		font-size: 0.8rem;
+		cursor: pointer;
+	}
+
+	.days button.active {
+		background: var(--home-card-on);
+		color: #2a1a24;
+		border-color: transparent;
+	}
+
+	.times {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	.times .temp {
+		width: 4.2rem;
+	}
+
+	.block.bad .times input {
+		border-color: #e66767;
+	}
+
+	.warn {
+		color: #ffb0b0;
+		margin: 0.3rem 0 0;
 	}
 </style>

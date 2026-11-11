@@ -1,6 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { alerts, connectStream, editMode, settings, showDrawer, states, tab } from '$lib/stores';
+	import {
+		alerts,
+		brain,
+		connectStream,
+		editMode,
+		settings,
+		showDrawer,
+		states,
+		tab
+	} from '$lib/stores';
 	import Theme from '$lib/components/Theme.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
@@ -21,7 +30,10 @@
 	settings.set(data.settings);
 	// svelte-ignore state_referenced_locally
 	states.set(data.states);
+	// svelte-ignore state_referenced_locally
 	alerts.set(data.alerts);
+	// svelte-ignore state_referenced_locally
+	brain.set(data.brain);
 
 	let openSettings = $state(false);
 

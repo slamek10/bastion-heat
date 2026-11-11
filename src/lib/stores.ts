@@ -4,6 +4,7 @@ import { roomReading, houseTemperature, zoneFor } from '$lib/rooms';
 import {
 	DEFAULT_SETTINGS,
 	type Alert,
+	type BrainStatus,
 	type HaState,
 	type LiveMessage,
 	type Settings,
@@ -19,6 +20,8 @@ export const tab = writable<Tab>('overview');
 export const showDrawer = writable(false);
 /** Uredi in the drawer: names of rooms and sensors become editable */
 export const editMode = writable(false);
+/** the brain: each room's plan and the latest decisions */
+export const brain = writable<BrainStatus | undefined>();
 /** airing advice and cold warnings, from the server */
 export const alerts = writable<Alert[]>([]);
 /** a clock that moves every 30 s, so readings age on the page */
@@ -94,9 +97,24 @@ export async function call(domain: string, service: string, data: Record<string,
 	return true;
 }
 
+/** hold a room at a temperature until its schedule next changes; null = back to the schedule */
+export async function override(room: string, temp: number | null) {
+	const response = await fetch('/_api/brain/override', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ room, temp })
+	}).catch(() => undefined);
+	if (!response?.ok) {
+		toast({ title: get(t)('call_failed'), message: String(response?.status ?? ''), alert: true });
+		return;
+	}
+	brain.set(await response.json());
+}
+
 function onMessage(message: LiveMessage) {
 	if (message.kind === 'status') status.set(message.status);
 	else if (message.kind === 'alerts') alerts.set(message.alerts);
+	else if (message.kind === 'brain') brain.set(message.brain);
 	else if (message.kind === 'states') states.update((all) => ({ ...all, ...message.states }));
 	else if (message.kind === 'notice')
 		toast({ title: message.title, message: message.message, alert: message.alert });
