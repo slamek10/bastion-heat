@@ -128,3 +128,49 @@ export function seasonToDate(days: Day[], today: Date) {
 			: undefined;
 	return { now, before, change };
 }
+
+export type Span = 'day' | 'week' | 'month' | 'year';
+
+export interface Bucket {
+	/** the first day, YYYY-MM-DD */
+	key: string;
+	kwh: number;
+	/** days in the bucket a meter reported */
+	metered: number;
+	days: number;
+	cost?: number;
+}
+
+function bucketStart(date: string, span: Span) {
+	if (span === 'day') return date;
+	if (span === 'month') return `${date.slice(0, 7)}-01`;
+	if (span === 'year') return `${date.slice(0, 4)}-01-01`;
+	const day = new Date(`${date}T12:00:00`);
+	day.setDate(day.getDate() - ((day.getDay() + 6) % 7));
+	return dateKey(day);
+}
+
+const LIMITS: Record<Span, number> = { day: 31, week: 26, month: 24, year: 10 };
+
+/** energy per day, week (from Monday), month or year; the most recent ones, oldest first */
+export function consumption(days: Day[], span: Span, price = 0): Bucket[] {
+	const buckets = new Map<string, Bucket>();
+	for (const day of days) {
+		const key = bucketStart(day.date, span);
+		const bucket = buckets.get(key) ?? { key, kwh: 0, metered: 0, days: 0 };
+		bucket.days++;
+		if (day.metered) {
+			bucket.metered++;
+			bucket.kwh += day.kwh;
+		}
+		buckets.set(key, bucket);
+	}
+	return [...buckets.values()]
+		.sort((a, b) => a.key.localeCompare(b.key))
+		.slice(-LIMITS[span])
+		.map((bucket) => ({
+			...bucket,
+			kwh: round(bucket.kwh),
+			...(price > 0 && bucket.metered && { cost: round(bucket.kwh * price, 2) })
+		}));
+}

@@ -52,6 +52,8 @@ export async function efficiency() {
 		hddBase: settings.hddBase,
 		seasons,
 		months,
-		toDate: seasonToDate(all, now)
+		toDate: seasonToDate(all, now),
+		price: settings.energyPrice,
+		days: all.map(({ date, kwh, metered }) => ({ date, kwh, metered }))
 	};
 }

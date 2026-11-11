@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byMonth, bySeason, dailyRows, seasonToDate, summarize } from './efficiency';
+import { byMonth, bySeason, consumption, dailyRows, seasonToDate, summarize } from './efficiency';
 
 const at = (date: string) => new Date(`${date}T00:00:00`).getTime();
 
@@ -72,5 +72,31 @@ describe('efficiency', () => {
 		expect(result.now?.perHdd).toBe(1);
 		expect(result.before?.perHdd).toBe(2);
 		expect(result.change).toBe(-50);
+	});
+});
+
+describe('consumption', () => {
+	const days = [
+		{ date: '2026-11-08', hdd: 10, kwh: 20, metered: true }, // Sunday
+		{ date: '2026-11-09', hdd: 10, kwh: 30, metered: true }, // Monday
+		{ date: '2026-11-10', hdd: 10, kwh: 0 },
+		{ date: '2026-12-01', hdd: 10, kwh: 5, metered: true }
+	];
+
+	it('sums by week from Monday, counting metered days', () => {
+		expect(consumption(days, 'week', 0.1)).toEqual([
+			{ key: '2026-11-02', kwh: 20, metered: 1, days: 1, cost: 2 },
+			{ key: '2026-11-09', kwh: 30, metered: 1, days: 2, cost: 3 },
+			{ key: '2026-11-30', kwh: 5, metered: 1, days: 1, cost: 0.5 }
+		]);
+	});
+
+	it('sums by month and year, and keeps a day without data empty', () => {
+		expect(consumption(days, 'month').map((b) => [b.key, b.kwh])).toEqual([
+			['2026-11-01', 50],
+			['2026-12-01', 5]
+		]);
+		expect(consumption(days, 'year')).toMatchObject([{ key: '2026-01-01', kwh: 55 }]);
+		expect(consumption(days, 'day')[2]).toMatchObject({ metered: 0, kwh: 0 });
 	});
 });

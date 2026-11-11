@@ -8,6 +8,8 @@
 	import type { Period } from '$lib/efficiency';
 	import Panel from '$lib/components/Panel.svelte';
 	import WeeklyReport from '$lib/components/WeeklyReport.svelte';
+	import Consumption from '$lib/components/Consumption.svelte';
+	import type { Day } from '$lib/efficiency';
 	import Icon from '@iconify/svelte';
 	import { onMount } from 'svelte';
 
@@ -17,6 +19,8 @@
 		seasons: Period[];
 		months: Period[];
 		toDate: { now?: Period; before?: Period; change?: number };
+		price: number;
+		days: Day[];
 	}
 	let data = $state<Efficiency | undefined>();
 	let failed = $state('');
@@ -104,6 +108,8 @@
 				<span class="w-dim">{$t('eff_hdd_hint', { base: String(data.hddBase) })}</span>
 			</div>
 		</div>
+
+		{#if data.meters}<Consumption days={data.days} price={data.price} />{/if}
 
 		<Panel icon="mdi:chart-bar" title={$t('eff_months')} wide>
 			{#if bars.items.some((item) => item.month.perHdd !== undefined)}
