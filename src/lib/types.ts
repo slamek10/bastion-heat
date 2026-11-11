@@ -17,6 +17,8 @@ export interface SystemEntities {
 	waterHeater?: string;
 	/** the temperature the main thermostat measures */
 	indoor?: string;
+	/** outdoor humidity: a sensor, or a weather entity (its humidity and temperature) */
+	outdoorHumidity?: string;
 }
 
 export type Aggregation = 'mean' | 'median' | 'min';
@@ -35,6 +37,8 @@ export interface Room {
 	/** window / door contacts and TRV window_open sensors */
 	windows: string[];
 	humidity?: string;
+	/** a CO₂ sensor (ppm), for airing advice */
+	co2?: string;
 	/** the user's own names for the room's sensors and valves, by entity */
 	labels?: Record<string, string>;
 }
@@ -62,6 +66,18 @@ export interface Settings {
 	presets: Preset[];
 	/** a sensor older than this many minutes is left out of a room's temperature */
 	staleMinutes: number;
+	/** advice to air a room that is too humid (when outside is drier) or has high CO₂ */
+	airingAlerts: boolean;
+	/** % relative humidity */
+	humidityLimit: number;
+	/** ppm */
+	co2Limit: number;
+	/** a warning when a room or a spot below falls under frostLimit */
+	frostAlerts: boolean;
+	/** °C */
+	frostLimit: number;
+	/** spots that aren't rooms but must not freeze: a garage, a cellar, the boiler room */
+	frostSensors: string[];
 }
 
 /** defaults from Bastion HA's heating card, so the first start shows the same house */
@@ -110,7 +126,13 @@ export const DEFAULT_SETTINGS: Settings = {
 		}
 	],
 	presets: [],
-	staleMinutes: 90
+	staleMinutes: 90,
+	airingAlerts: true,
+	humidityLimit: 60,
+	co2Limit: 1000,
+	frostAlerts: true,
+	frostLimit: 10,
+	frostSensors: []
 };
 
 /** an entity as Home Assistant reports it */
@@ -150,7 +172,19 @@ export interface Status {
 	ha: boolean;
 }
 
+export interface Alert {
+	key: string;
+	kind: 'airing' | 'cold';
+	/** the room's name or the spot's */
+	name: string;
+	/** i18n key and its values */
+	message: string;
+	vars: Record<string, string>;
+	since: number;
+}
+
 export type LiveMessage =
+	| { kind: 'alerts'; alerts: Alert[] }
 	| { kind: 'status'; status: Status }
 	| { kind: 'states'; states: Record<string, HaState> }
 	| { kind: 'notice'; title: string; message: string; alert?: boolean };

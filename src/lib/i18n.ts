@@ -128,7 +128,32 @@ const hr = {
 	multi_all: 'Odaberi sve',
 	multi_clear: 'Očisti',
 	rename: 'Preimenuj',
-	room_humidity_chart: 'vlaga, zadnja 24 h'
+	room_humidity_chart: 'vlaga, zadnja 24 h',
+	set_alerts: 'Upozorenja',
+	set_alerts_hint: 'Provjetravanje i hladnoća, na stranici i kao obavijest na mobitel',
+	airing_alerts: 'Savjet za provjetravanje',
+	airing_alerts_hint:
+		'Kad je u sobi vlažno, a vani je zrak suši (manje vode po m³), ili kad je CO₂ visok. Ne javlja ako je prozor otvoren.',
+	humidity_limit: 'Vlaga od (%)',
+	co2_limit: 'CO₂ od (ppm)',
+	ent_outdoor_humidity: 'Vanjska vlaga (senzor ili weather entitet)',
+	room_co2_sensor: 'CO₂ senzor (neobavezno)',
+	frost_alerts: 'Upozorenje na hladnoću',
+	frost_alerts_hint:
+		'Soba ili mjesto ispod granice duže od 10 minuta, npr. garaža ili podrum gdje se cijevi mogu smrznuti.',
+	frost_limit: 'Granica (°C)',
+	frost_sensors: 'Dodatna mjesta (garaža, podrum, kotlovnica)',
+	alerts: 'Upozorenja',
+	alert_cold_title: 'Hladno: {name}',
+	alert_cold: '{name} je na {t} °C. Provjeri grijanje, prozor ili vrata.',
+	alert_cold_over: '{name} je opet iznad granice.',
+	alert_airing_title: 'Provjetri: {name}',
+	alert_airing_humidity:
+		'{name} ima {h}% vlage. Vani je zrak suši za {g} g/m³, 5–10 min širom otvoren prozor pomaže.',
+	alert_airing_co2: '{name} ima {ppm} ppm CO₂. Provjetri nekoliko minuta.',
+	air_now: 'Provjetri',
+	cold_now: 'Hladno',
+	dew_point: 'rosište {t}°'
 };
 
 const en: typeof hr = {
@@ -256,7 +281,32 @@ const en: typeof hr = {
 	multi_all: 'Select all',
 	multi_clear: 'Clear',
 	rename: 'Rename',
-	room_humidity_chart: 'humidity, last 24 h'
+	room_humidity_chart: 'humidity, last 24 h',
+	set_alerts: 'Alerts',
+	set_alerts_hint: 'Airing and cold, on the page and as a phone notification',
+	airing_alerts: 'Airing advice',
+	airing_alerts_hint:
+		'When a room is humid and the air outside is drier (less water per m³), or CO₂ is high. Quiet while a window is open.',
+	humidity_limit: 'Humidity from (%)',
+	co2_limit: 'CO₂ from (ppm)',
+	ent_outdoor_humidity: 'Outdoor humidity (a sensor or a weather entity)',
+	room_co2_sensor: 'CO₂ sensor (optional)',
+	frost_alerts: 'Cold warning',
+	frost_alerts_hint:
+		'A room or spot below the limit for over 10 minutes, e.g. a garage or cellar where pipes could freeze.',
+	frost_limit: 'Limit (°C)',
+	frost_sensors: 'Extra spots (garage, cellar, boiler room)',
+	alerts: 'Alerts',
+	alert_cold_title: 'Cold: {name}',
+	alert_cold: '{name} is at {t} °C. Check the heating, a window or a door.',
+	alert_cold_over: '{name} is above the limit again.',
+	alert_airing_title: 'Air it: {name}',
+	alert_airing_humidity:
+		'{name} is at {h}% humidity. The air outside is {g} g/m³ drier; 5–10 min with the window wide open helps.',
+	alert_airing_co2: '{name} is at {ppm} ppm CO₂. Air it for a few minutes.',
+	air_now: 'Air it',
+	cold_now: 'Cold',
+	dew_point: 'dew point {t}°'
 };
 
 export type Key = keyof typeof hr;

@@ -4,7 +4,8 @@
 	 * the AC, water pressure and presets, plus the rooms with their combined
 	 * temperatures. Changes go through /_api/ha/call.
 	 */
-	import { call, house, rooms, settings, states, status, t, tab } from '$lib/stores';
+	import { alerts, call, house, rooms, settings, states, status, t, tab } from '$lib/stores';
+	import type { Key } from '$lib/i18n';
 	import { numberOf } from '$lib/rooms';
 	import { pressureState, targetFlow } from '$lib/curve';
 	import Panel from '$lib/components/Panel.svelte';
@@ -121,6 +122,20 @@
 			<Icon icon="mdi:gauge" height="1rem" />{$t('pressure')} <strong>{pressure ?? '—'} bar</strong>
 		</span>
 	</div>
+
+	{#if $alerts.length}
+		<ul class="alerts" aria-label={$t('alerts')}>
+			{#each $alerts as alert (alert.key)}
+				<li class="alert {alert.kind}">
+					<Icon
+						icon={alert.kind === 'cold' ? 'mdi:snowflake-alert' : 'mdi:window-open-variant'}
+						height="1.2rem"
+					/>
+					<span>{$t(alert.message as Key, alert.vars)}</span>
+				</li>
+			{/each}
+		</ul>
+	{/if}
 
 	{#if $settings.presets.length}
 		<div class="presets">
@@ -290,6 +305,35 @@
 </main>
 
 <style>
+	.alerts {
+		list-style: none;
+		margin: 0 0 1rem;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.alert {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0.6rem 0.9rem;
+		border-radius: 0.8rem;
+		backdrop-filter: blur(12px);
+		font-size: 0.92rem;
+	}
+
+	.alert.cold {
+		background: rgba(57, 135, 229, 0.28);
+		border: 1px solid rgba(169, 205, 246, 0.45);
+	}
+
+	.alert.airing {
+		background: rgba(25, 158, 112, 0.25);
+		border: 1px solid rgba(140, 220, 190, 0.4);
+	}
+
 	.page {
 		padding: 0 2rem calc(7rem + env(safe-area-inset-bottom));
 		color: white;

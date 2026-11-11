@@ -22,6 +22,13 @@ const entities = (value: unknown, max = 20) =>
 const text = (value: unknown, max: number) =>
 	typeof value === 'string' ? value.trim().slice(0, max) : '';
 const AGGREGATIONS: Aggregation[] = ['mean', 'median', 'min'];
+const flag = (value: unknown, fallback: boolean) => (typeof value === 'boolean' ? value : fallback);
+const range = (value: unknown, min: number, max: number, fallback: number) => {
+	const number = Number(value);
+	return Number.isFinite(number) && value !== '' && value !== null
+		? Math.min(max, Math.max(min, number))
+		: fallback;
+};
 
 /** names only for the room's own entities, at most 60 characters */
 function labelsOf(input: any) {
@@ -50,6 +57,7 @@ function cleanRoom(input: any, index: number): Room | undefined {
 		...(entity(input?.ac) && { ac: entity(input.ac) }),
 		windows: entities(input?.windows),
 		...(entity(input?.humidity) && { humidity: entity(input.humidity) }),
+		...(entity(input?.co2) && { co2: entity(input.co2) }),
 		...labelsOf(input)
 	};
 }
@@ -92,7 +100,17 @@ export async function PUT({ request }) {
 		entities: {
 			zone: entity(e.zone) ?? DEFAULT_SETTINGS.entities.zone,
 			...Object.fromEntries(
-				['ac', 'flow', 'outdoor', 'pressure', 'curve', 'dhw', 'waterHeater', 'indoor']
+				[
+					'ac',
+					'flow',
+					'outdoor',
+					'pressure',
+					'curve',
+					'dhw',
+					'waterHeater',
+					'indoor',
+					'outdoorHumidity'
+				]
 					.map((key) => [key, entity(e[key])])
 					.filter(([, value]) => value)
 			)
@@ -112,7 +130,15 @@ export async function PUT({ request }) {
 		staleMinutes: Math.min(
 			720,
 			Math.max(10, Math.round(Number(body.staleMinutes)) || before.staleMinutes)
-		)
+		),
+		airingAlerts: flag(body.airingAlerts, before.airingAlerts),
+		humidityLimit: range(body.humidityLimit, 30, 95, before.humidityLimit),
+		co2Limit: range(body.co2Limit, 500, 5000, before.co2Limit),
+		frostAlerts: flag(body.frostAlerts, before.frostAlerts),
+		frostLimit: range(body.frostLimit, -10, 20, before.frostLimit),
+		frostSensors: Array.isArray(body.frostSensors)
+			? entities(body.frostSensors, 30)
+			: before.frostSensors
 	};
 	await saveSettings(settings);
 	await refreshWatched();

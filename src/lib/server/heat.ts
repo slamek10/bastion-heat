@@ -14,7 +14,9 @@ export function entitiesOf(settings: Settings) {
 		for (const id of [...room.sensors, ...room.trvs, ...room.windows]) ids.add(id);
 		if (room.ac) ids.add(room.ac);
 		if (room.humidity) ids.add(room.humidity);
+		if (room.co2) ids.add(room.co2);
 	}
+	for (const id of settings.frostSensors) ids.add(id);
 	for (const preset of settings.presets)
 		for (const target of preset.targets) ids.add(target.entity_id);
 	return ids;

@@ -13,6 +13,7 @@
 	const TABS: { id: string; icon: string; title: Key; hint: Key }[] = [
 		{ id: 'rooms', icon: 'mdi:home-thermometer-outline', title: 'tab_rooms', hint: 'rooms_hint' },
 		{ id: 'system', icon: 'mdi:radiator', title: 'system', hint: 'set_system_hint' },
+		{ id: 'alerts', icon: 'mdi:alert-outline', title: 'set_alerts', hint: 'set_alerts_hint' },
 		{
 			id: 'notifications',
 			icon: 'mdi:bell-outline',
@@ -68,6 +69,15 @@
 	const windowsLike = (e: Entity) => domain(e.id) === 'binary_sensor';
 	const humidityLike = (e: Entity) =>
 		e.deviceClass === 'humidity' || (domain(e.id) === 'sensor' && e.unit === '%');
+	const co2Like = (e: Entity) =>
+		e.deviceClass === 'carbon_dioxide' || (domain(e.id) === 'sensor' && e.unit === 'ppm');
+	const outdoorHumidityLike = (e: Entity) => humidityLike(e) || domain(e.id) === 'weather';
+
+	/** a number field saves when it's left, within its limits */
+	function setNumber(key: 'humidityLimit' | 'co2Limit' | 'frostLimit', value: string) {
+		const number = Number(value.replace(',', '.'));
+		if (value.trim() && Number.isFinite(number)) set({ [key]: number });
+	}
 
 	const set = (patch: Partial<Settings>) => saveSettings(patch).catch(() => {});
 
@@ -306,6 +316,14 @@
 											(value) => ((room.humidity = value || undefined), (roomsChanged = true))
 										)}
 									</div>
+									<div class="field column">
+										<span>{$t('room_co2_sensor')}</span>
+										{@render picker(
+											room.co2,
+											co2Like,
+											(value) => ((room.co2 = value || undefined), (roomsChanged = true))
+										)}
+									</div>
 								</div>
 							{/if}
 						</div>
@@ -336,6 +354,67 @@
 							)}
 						</div>
 					{/each}
+				{:else if activeTab === 'alerts'}
+					<label class="switch">
+						<input
+							type="checkbox"
+							checked={$settings.airingAlerts}
+							onchange={(e) => set({ airingAlerts: e.currentTarget.checked })}
+						/>
+						<span>{$t('airing_alerts')}</span>
+					</label>
+					<p class="hint">{$t('airing_alerts_hint')}</p>
+					<div class="field">
+						<span>{$t('humidity_limit')}</span>
+						<input
+							class="text short"
+							value={$settings.humidityLimit}
+							inputmode="numeric"
+							onchange={(e) => setNumber('humidityLimit', e.currentTarget.value)}
+						/>
+					</div>
+					<div class="field">
+						<span>{$t('co2_limit')}</span>
+						<input
+							class="text short"
+							value={$settings.co2Limit}
+							inputmode="numeric"
+							onchange={(e) => setNumber('co2Limit', e.currentTarget.value)}
+						/>
+					</div>
+					<div class="field column">
+						<span>{$t('ent_outdoor_humidity')}</span>
+						{@render picker($settings.entities.outdoorHumidity, outdoorHumidityLike, (value) =>
+							setEntity('outdoorHumidity', value)
+						)}
+					</div>
+					<label class="switch">
+						<input
+							type="checkbox"
+							checked={$settings.frostAlerts}
+							onchange={(e) => set({ frostAlerts: e.currentTarget.checked })}
+						/>
+						<span>{$t('frost_alerts')}</span>
+					</label>
+					<p class="hint">{$t('frost_alerts_hint')}</p>
+					<div class="field">
+						<span>{$t('frost_limit')}</span>
+						<input
+							class="text short"
+							value={$settings.frostLimit}
+							inputmode="decimal"
+							onchange={(e) => setNumber('frostLimit', e.currentTarget.value)}
+						/>
+					</div>
+					<div class="field column">
+						<span>{$t('frost_sensors')}</span>
+						<MultiSelect
+							items={items(temperatureLike)}
+							selected={$settings.frostSensors}
+							onchange={(next) => set({ frostSensors: next })}
+							placeholder={$t('pick_entities')}
+						/>
+					</div>
 				{:else if activeTab === 'notifications'}
 					<div class="field column">
 						<span>{$t('notify_services')}</span>

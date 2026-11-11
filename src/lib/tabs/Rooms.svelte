@@ -5,7 +5,8 @@
 	 * the target, heating, a window open, humidity, and 24 hours of each
 	 * sensor. Line colors: the categorical slots 1-3 for a dark surface.
 	 */
-	import { rooms, saveSettings, settings, states, t } from '$lib/stores';
+	import { alerts, rooms, saveSettings, settings, states, t } from '$lib/stores';
+	import { dewPoint } from '$lib/comfort';
 	import type { Room } from '$lib/types';
 	import { numberOf } from '$lib/rooms';
 	import type { Key } from '$lib/i18n';
@@ -151,6 +152,12 @@
 					{#if reading.heating}<span class="tag heat"
 							><Icon icon="mdi:fire" height="0.9rem" />{$t('room_heating')}</span
 						>{/if}
+					{#if $alerts.some((alert) => alert.key === `airing|${room.id}`)}<span class="tag air"
+							><Icon icon="mdi:weather-windy" height="0.9rem" />{$t('air_now')}</span
+						>{/if}
+					{#if $alerts.some((alert) => alert.key === `cold|${room.id}`)}<span class="tag cold"
+							><Icon icon="mdi:snowflake-alert" height="0.9rem" />{$t('cold_now')}</span
+						>{/if}
 					{#if reading.windowOpen}<span class="tag window"
 							><Icon icon="mdi:window-open-variant" height="0.9rem" />{$t('room_window')}</span
 						>{/if}
@@ -178,6 +185,12 @@
 						>{/if}
 					{#if reading.humidity !== undefined}<span
 							>{$t('room_humidity', { h: String(reading.humidity) })}</span
+						>{/if}
+					{#if reading.humidity !== undefined && reading.value !== undefined}<span class="w-dim"
+							>{$t('dew_point', { t: String(dewPoint(reading.value, reading.humidity)) })}</span
+						>{/if}
+					{#if room.co2 && numberOf($states[room.co2]) !== undefined}<span
+							>CO₂ {numberOf($states[room.co2])} ppm</span
 						>{/if}
 					{#if reading.value === undefined}<span class="w-warn">{$t('room_no_value')}</span>{/if}
 				</div>
@@ -287,6 +300,16 @@
 	.tag.heat {
 		background: rgba(217, 89, 38, 0.3);
 		color: #ffb48f;
+	}
+
+	.tag.air {
+		background: rgba(25, 158, 112, 0.3);
+		color: #9ee6c8;
+	}
+
+	.tag.cold {
+		background: rgba(57, 135, 229, 0.35);
+		color: #cfe3fb;
 	}
 
 	.tag.window {

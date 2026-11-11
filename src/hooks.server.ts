@@ -2,10 +2,12 @@ import type { Handle } from '@sveltejs/kit';
 import { hasSession, missingConfig } from '../auth.js';
 import { startHa } from '$lib/server/ha';
 import { startSummary } from '$lib/server/heat';
+import { startChecks } from '$lib/server/checks';
 
 if (!missingConfig().length) {
 	startHa();
 	startSummary();
+	startChecks();
 }
 
 const OPEN = ['/_api/health', '/_api/login'];

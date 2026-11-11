@@ -3,6 +3,7 @@ import { translate, type Key } from '$lib/i18n';
 import { roomReading, houseTemperature } from '$lib/rooms';
 import {
 	DEFAULT_SETTINGS,
+	type Alert,
 	type HaState,
 	type LiveMessage,
 	type Settings,
@@ -16,6 +17,8 @@ export const states = writable<Record<string, HaState>>({});
 export const status = writable<Status>({ ha: false });
 export const tab = writable<Tab>('overview');
 export const showDrawer = writable(false);
+/** airing advice and cold warnings, from the server */
+export const alerts = writable<Alert[]>([]);
 /** a clock that moves every 30 s, so readings age on the page */
 export const now = writable(Date.now());
 
@@ -91,6 +94,7 @@ export async function call(domain: string, service: string, data: Record<string,
 
 function onMessage(message: LiveMessage) {
 	if (message.kind === 'status') status.set(message.status);
+	else if (message.kind === 'alerts') alerts.set(message.alerts);
 	else if (message.kind === 'states') states.update((all) => ({ ...all, ...message.states }));
 	else if (message.kind === 'notice')
 		toast({ title: message.title, message: message.message, alert: message.alert });
