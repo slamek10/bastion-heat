@@ -182,6 +182,28 @@ export function history(entityIds: string[], start: Date, end = new Date()) {
 	) as Promise<Record<string, { s: string; a?: Record<string, any>; lu?: number; lc?: number }[]>>;
 }
 
+/** long-term statistics (kept forever, unlike history): daily or hourly mean/min/max or change */
+export function statistics(
+	ids: string[],
+	start: Date,
+	period: 'hour' | 'day' | 'week' | 'month',
+	types: ('mean' | 'min' | 'max' | 'change')[],
+	end = new Date()
+) {
+	return send(
+		{
+			type: 'recorder/statistics_during_period',
+			start_time: start.toISOString(),
+			end_time: end.toISOString(),
+			statistic_ids: ids,
+			period,
+			types,
+			units: { energy: 'kWh', temperature: '°C' }
+		},
+		120_000
+	) as Promise<Record<string, import('$lib/efficiency').StatRow[]>>;
+}
+
 /** writes a state HA shows like any sensor (POST /api/states), e.g. Heat's summary for Bastion HA */
 export async function setHaState(
 	entityId: string,

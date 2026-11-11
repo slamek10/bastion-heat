@@ -78,6 +78,14 @@ export interface Settings {
 	frostLimit: number;
 	/** spots that aren't rooms but must not freeze: a garage, a cellar, the boiler room */
 	frostSensors: string[];
+	/** kWh meters of the heating (heat pump / boiler; gas in kWh) */
+	heatingEnergy: string[];
+	/** €/kWh, 0 = no cost shown */
+	energyPrice: number;
+	/** °C the house is heated to, for degree-days */
+	hddBase: number;
+	/** the weekly report: day (1 = Monday … 7 = Sunday) and hour */
+	report: { enabled: boolean; weekday: number; hour: number };
 }
 
 /** defaults from Bastion HA's heating card, so the first start shows the same house */
@@ -132,7 +140,11 @@ export const DEFAULT_SETTINGS: Settings = {
 	co2Limit: 1000,
 	frostAlerts: true,
 	frostLimit: 10,
-	frostSensors: []
+	frostSensors: [],
+	heatingEnergy: [],
+	energyPrice: 0,
+	hddBase: 18,
+	report: { enabled: true, weekday: 1, hour: 8 }
 };
 
 /** an entity as Home Assistant reports it */

@@ -153,6 +153,35 @@ const hr = {
 	alert_airing_co2: '{name} ima {ppm} ppm CO₂. Provjetri nekoliko minuta.',
 	air_now: 'Provjetri',
 	cold_now: 'Hladno',
+	tab_analysis: 'Analiza',
+	loading: 'Učitavam…',
+	eff_failed: 'Statistika iz Home Assistanta nije stigla.',
+	eff_no_meters:
+		'Nema brojila energije, pa se računaju samo stupanj-dani. Dodaj ih u Postavke → Potrošnja i izvještaj.',
+	eff_this_season: 'Ova sezona ({season})',
+	eff_last_season: 'Prošla do istog dana ({season})',
+	eff_unit: 'kWh po °Cd',
+	eff_change: 'Promjena',
+	eff_better: 'manje energije za istu hladnoću',
+	eff_worse: 'više energije za istu hladnoću',
+	eff_hdd_season: 'Stupanj-dani ove sezone',
+	eff_hdd_hint: 'zbroj (baza {base} °C − vanjska) za dane ispod 15 °C',
+	eff_months: 'Zadnjih 12 mjeseci, kWh po stupanj-danu',
+	eff_no_data: 'Još nema dovoljno podataka.',
+	eff_month: 'Mjesec',
+	eff_season: 'Sezona',
+	eff_days: 'Dana',
+	eff_cost: 'Trošak',
+	eff_seasons: 'Sezone grijanja (srpanj – lipanj)',
+	eff_note:
+		'Hladniji mjesec traži više energije, pa se uspoređuje energija po stupanj-danu. Manji broj znači bolju kuću ili bolje postavke. Ljetni dani (bez stupanj-dana) ne ulaze u omjer, da topla voda ne iskrivi sliku.',
+	set_energy: 'Potrošnja i izvještaj',
+	set_energy_hint: 'Brojila energije grijanja, cijena i tjedni izvještaj',
+	heating_energy: 'Brojila energije grijanja (kWh)',
+	heating_energy_hint:
+		'Senzori ukupne potrošnje (dizalica topline, kotao, plin u kWh). Heat čita dnevnu statistiku iz Home Assistanta.',
+	energy_price: 'Cijena (€/kWh)',
+	hdd_base: 'Baza stupanj-dana (°C)',
 	dew_point: 'rosište {t}°'
 };
 
@@ -306,6 +335,35 @@ const en: typeof hr = {
 	alert_airing_co2: '{name} is at {ppm} ppm CO₂. Air it for a few minutes.',
 	air_now: 'Air it',
 	cold_now: 'Cold',
+	tab_analysis: 'Analysis',
+	loading: 'Loading…',
+	eff_failed: 'Statistics from Home Assistant did not arrive.',
+	eff_no_meters:
+		'No energy meters, so only degree-days are counted. Add them in Settings → Energy and report.',
+	eff_this_season: 'This season ({season})',
+	eff_last_season: 'Last season to the same day ({season})',
+	eff_unit: 'kWh per °Cd',
+	eff_change: 'Change',
+	eff_better: 'less energy for the same cold',
+	eff_worse: 'more energy for the same cold',
+	eff_hdd_season: 'Degree-days this season',
+	eff_hdd_hint: 'sum of (base {base} °C − outdoor) on days under 15 °C',
+	eff_months: 'Last 12 months, kWh per degree-day',
+	eff_no_data: 'Not enough data yet.',
+	eff_month: 'Month',
+	eff_season: 'Season',
+	eff_days: 'Days',
+	eff_cost: 'Cost',
+	eff_seasons: 'Heating seasons (July – June)',
+	eff_note:
+		'A colder month needs more energy, so energy per degree-day is compared. A lower number means a better house or better settings. Summer days (no degree-days) stay out of the ratio, so hot water does not skew it.',
+	set_energy: 'Energy and report',
+	set_energy_hint: 'Heating energy meters, price and the weekly report',
+	heating_energy: 'Heating energy meters (kWh)',
+	heating_energy_hint:
+		'Total consumption sensors (heat pump, boiler, gas in kWh). Heat reads the daily statistics from Home Assistant.',
+	energy_price: 'Price (€/kWh)',
+	hdd_base: 'Degree-day base (°C)',
 	dew_point: 'dew point {t}°'
 };
 

@@ -12,6 +12,7 @@
 	import Overview from '$lib/tabs/Overview.svelte';
 	import Curve from '$lib/tabs/Curve.svelte';
 	import Rooms from '$lib/tabs/Rooms.svelte';
+	import Analysis from '$lib/tabs/Analysis.svelte';
 
 	let { data } = $props();
 
@@ -52,8 +53,10 @@
 			<Overview />
 		{:else if $tab === 'curve'}
 			<Curve />
-		{:else}
+		{:else if $tab === 'rooms'}
 			<Rooms />
+		{:else}
+			<Analysis />
 		{/if}
 	</div>
 

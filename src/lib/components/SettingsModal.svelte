@@ -15,6 +15,12 @@
 		{ id: 'system', icon: 'mdi:radiator', title: 'system', hint: 'set_system_hint' },
 		{ id: 'alerts', icon: 'mdi:alert-outline', title: 'set_alerts', hint: 'set_alerts_hint' },
 		{
+			id: 'energy',
+			icon: 'mdi:lightning-bolt-outline',
+			title: 'set_energy',
+			hint: 'set_energy_hint'
+		},
+		{
 			id: 'notifications',
 			icon: 'mdi:bell-outline',
 			title: 'notifications',
@@ -74,7 +80,13 @@
 	const outdoorHumidityLike = (e: Entity) => humidityLike(e) || domain(e.id) === 'weather';
 
 	/** a number field saves when it's left, within its limits */
-	function setNumber(key: 'humidityLimit' | 'co2Limit' | 'frostLimit', value: string) {
+	const energyLike = (e: Entity) =>
+		e.deviceClass === 'energy' || e.unit === 'kWh' || e.unit === 'Wh' || e.unit === 'MWh';
+
+	function setNumber(
+		key: 'humidityLimit' | 'co2Limit' | 'frostLimit' | 'energyPrice' | 'hddBase',
+		value: string
+	) {
 		const number = Number(value.replace(',', '.'));
 		if (value.trim() && Number.isFinite(number)) set({ [key]: number });
 	}
@@ -415,6 +427,36 @@
 							placeholder={$t('pick_entities')}
 						/>
 					</div>
+				{:else if activeTab === 'energy'}
+					<div class="field column">
+						<span>{$t('heating_energy')}</span>
+						<MultiSelect
+							items={items(energyLike)}
+							selected={$settings.heatingEnergy}
+							onchange={(next) => set({ heatingEnergy: next })}
+							placeholder={$t('pick_entities')}
+						/>
+						<p class="hint">{$t('heating_energy_hint')}</p>
+					</div>
+					<div class="field">
+						<span>{$t('energy_price')}</span>
+						<input
+							class="text short"
+							value={$settings.energyPrice}
+							inputmode="decimal"
+							onchange={(e) => setNumber('energyPrice', e.currentTarget.value)}
+						/>
+					</div>
+					<div class="field">
+						<span>{$t('hdd_base')}</span>
+						<input
+							class="text short"
+							value={$settings.hddBase}
+							inputmode="decimal"
+							onchange={(e) => setNumber('hddBase', e.currentTarget.value)}
+						/>
+					</div>
+					<!-- report -->
 				{:else if activeTab === 'notifications'}
 					<div class="field column">
 						<span>{$t('notify_services')}</span>

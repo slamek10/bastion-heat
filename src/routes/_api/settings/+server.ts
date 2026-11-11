@@ -138,7 +138,17 @@ export async function PUT({ request }) {
 		frostLimit: range(body.frostLimit, -10, 20, before.frostLimit),
 		frostSensors: Array.isArray(body.frostSensors)
 			? entities(body.frostSensors, 30)
-			: before.frostSensors
+			: before.frostSensors,
+		heatingEnergy: Array.isArray(body.heatingEnergy)
+			? entities(body.heatingEnergy, 10)
+			: before.heatingEnergy,
+		energyPrice: range(body.energyPrice, 0, 5, before.energyPrice),
+		hddBase: range(body.hddBase, 12, 24, before.hddBase),
+		report: {
+			enabled: flag(body.report?.enabled, before.report.enabled),
+			weekday: Math.round(range(body.report?.weekday, 1, 7, before.report.weekday)),
+			hour: Math.round(range(body.report?.hour, 0, 23, before.report.hour))
+		}
 	};
 	await saveSettings(settings);
 	await refreshWatched();
