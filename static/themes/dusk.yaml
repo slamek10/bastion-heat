@@ -1,0 +1,32 @@
+title: dusk
+author: ha-fusion
+attribution: ''
+theme:
+  colors-text: rgb(255, 255, 255)
+  colors-icon: rgb(255, 255, 255)
+  colors-title: rgb(255, 255, 255)
+  colors-sidebar-border: 1px solid rgba(255, 255, 255, 0.18)
+  colors-sidebar-background: rgba(0, 0, 0, 0.15)
+  sizes-sidebar-time: 2.6rem
+  background-image: 'radial-gradient(ellipse at 75% -10%, rgba(196, 110, 150, 0.55) 0%, transparent 55%), linear-gradient(160deg, #5b2d4d 0%, #3d1d35 50%, #241222 100%)'
+  font-family: "'Inter Variable', system-ui"
+  button-background-color-on: rgb(255, 255, 255)
+  button-background-color-off: rgba(255, 255, 255, 0.1)
+  drawer-button-background-color: rgba(255, 255, 255, 0.1)
+  button-name-color-on: rgb(0, 0, 0)
+  button-name-color-off: rgb(255, 255, 255)
+  button-state-color-on: DimGray
+  button-state-color-off: rgba(255, 255, 255, 0.65)
+  modal-background-color: rgba(0, 0, 0, 0.3)
+  border-radius: 0.6rem
+  sidebar-font-size: 0.9rem
+  sidebar-item-padding: 0.45rem 0.5rem
+  sidebar-padding: 0 0.85rem
+  drawer-font-size: 0.925rem
+  sidebar-divider: 1px solid rgba(255, 255, 255, 0.18)
+  navigate-background-color: rgba(255, 255, 255, 0.12)
+  app-color: '#3d1d35'
+  modal-background-color-modal: rgb(36 18 32 / 80%)
+  home-accent: '#ffc93c'
+  home-card-on: '#f3ead6'
+  home-bar: rgba(40, 22, 36, 0.6)

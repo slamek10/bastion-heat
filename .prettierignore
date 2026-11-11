@@ -1,0 +1,7 @@
+node_modules
+build
+.svelte-kit
+package-lock.json
+static/themes
+data
+clickhouse/data

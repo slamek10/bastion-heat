@@ -1,0 +1,21 @@
+# Bastion Heat: heating with its own logic, on top of Home Assistant.
+# Copy .env.example to .env, fill it in, then: docker compose up -d --build
+services:
+  bastion-heat:
+    build: .
+    image: islamek/bastion-heat:${BASTION_HEAT_TAG:-latest}
+    container_name: bastion-heat
+    restart: unless-stopped
+    env_file: .env # must exist: cp .env.example .env
+    environment:
+      PORT: 5090
+      TZ: ${TZ:-Europe/Zagreb}
+    volumes:
+      - ./data:/app/data
+    ports:
+      - '${EXPOSED_PORT:-5090}:5090'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:5090/_api/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3

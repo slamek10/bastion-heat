@@ -1,0 +1,41 @@
+title: adaptive-aurora
+author: ha-fusion
+attribution: ''
+theme:
+  colors-text: rgb(255, 255, 255)
+  colors-icon: rgb(255, 255, 255)
+  colors-title: rgb(255, 255, 255)
+  colors-sidebar-border: 1px solid rgba(255, 255, 255, 0.18)
+  colors-sidebar-background: rgba(0, 0, 0, 0.15)
+  sizes-sidebar-time: 2.6rem
+  background-image: 'linear-gradient(135deg, #16384e, #1f6a6c 50%, #b58a48)'
+  font-family: "'Inter Variable', system-ui"
+  button-background-color-on: rgb(255, 255, 255)
+  button-background-color-off: rgba(255, 255, 255, 0.1)
+  drawer-button-background-color: rgba(255, 255, 255, 0.1)
+  button-name-color-on: rgb(0, 0, 0)
+  button-name-color-off: rgb(255, 255, 255)
+  button-state-color-on: DimGray
+  button-state-color-off: rgba(255, 255, 255, 0.65)
+  modal-background-color: rgba(0, 0, 0, 0.3)
+  border-radius: 0.6rem
+  sidebar-font-size: 0.9rem
+  sidebar-item-padding: 0.45rem 0.5rem
+  sidebar-padding: 0 0.85rem
+  drawer-font-size: 0.925rem
+  sidebar-divider: 1px solid rgba(255, 255, 255, 0.18)
+  navigate-background-color: rgba(255, 255, 255, 0.12)
+  app-color: '#0a2028'
+  modal-background-color-modal: rgb(10 32 40 / 82%)
+  home-accent: '#7cc4ff'
+  home-card-on: '#e4f1f2'
+  home-bar: rgba(10, 32, 40, 0.65)
+adaptive:
+  - at: 0
+    colors: ['#16384e', '#0b2036', '#27566e', '#07131f']
+  - at: 0.4
+    colors: ['#1f6a6c', '#16405a', '#3a8a80', '#0a2028']
+  - at: 0.7
+    colors: ['#5a5fa6', '#43306e', '#6f9480', '#16142c']
+  - at: 1
+    colors: ['#b58a48', '#74463c', '#a88a4e', '#2a1c14']

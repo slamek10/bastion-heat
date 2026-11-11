@@ -1,0 +1,210 @@
+/* shared pieces for Sustav and Asistent: glass cards, data tables, pills, state dots */
+.w-card {
+	padding: 1rem 1.1rem;
+	border-radius: 1.4rem;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	background: rgba(0, 0, 0, 0.35);
+	backdrop-filter: blur(16px);
+	min-width: 0;
+	color: white;
+}
+
+.w-card h3,
+.w-section-title {
+	margin: 0 0 0.7rem;
+	font-size: 1rem;
+	font-weight: 500;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.w-card h4 {
+	margin: 1rem 0 0.4rem;
+	font-size: 0.85rem;
+	font-weight: 500;
+	opacity: 0.7;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+}
+
+.w-scroll {
+	overflow: auto;
+	/* about 12-15 rows, the rest behind a scrollbar */
+	max-height: 30rem;
+	scrollbar-width: thin;
+	overscroll-behavior: contain;
+}
+
+/* the header stays while the rows scroll */
+.w-scroll table.w-data thead th {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background: rgb(16 18 30 / 96%);
+}
+
+table.w-data {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.85rem;
+	font-variant-numeric: tabular-nums;
+}
+
+table.w-data th {
+	font-weight: 500;
+	opacity: 0.6;
+	text-align: left;
+	padding: 0 0.6rem 0.35rem 0;
+	white-space: nowrap;
+}
+
+table.w-data td {
+	padding: 0.32rem 0.6rem 0.32rem 0;
+	border-top: 1px solid rgba(255, 255, 255, 0.06);
+	vertical-align: middle;
+}
+
+table.w-data .num {
+	text-align: right;
+	white-space: nowrap;
+}
+
+table.w-data .mono,
+.w-mono {
+	font-family: ui-monospace, monospace;
+	font-size: 0.82em;
+}
+
+.w-dim {
+	opacity: 0.6;
+}
+
+.w-dot {
+	display: inline-block;
+	width: 0.6rem;
+	height: 0.6rem;
+	border-radius: 50%;
+	background: #8a8a8a;
+	flex-shrink: 0;
+}
+
+.w-dot.ok {
+	background: #22c55e;
+}
+
+.w-dot.warn {
+	background: #c98500;
+}
+
+.w-dot.bad {
+	background: #e66767;
+}
+
+/* a value that needs attention: an edge and a word, never color alone */
+.w-warn {
+	color: #ffd27a;
+	font-weight: 600;
+}
+
+.w-bad {
+	color: #ff9a9a;
+	font-weight: 600;
+}
+
+.w-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.45rem 0.95rem;
+	border-radius: 2rem;
+	border: 1px solid rgba(255, 255, 255, 0.18);
+	background: rgba(255, 255, 255, 0.1);
+	color: inherit;
+	font-family: inherit;
+	font-size: 0.85rem;
+	font-weight: 500;
+	cursor: pointer;
+	white-space: nowrap;
+	text-decoration: none;
+}
+
+.w-pill.small {
+	padding: 0.25rem 0.7rem;
+	font-size: 0.78rem;
+}
+
+.w-pill.primary {
+	background: var(--home-card-on);
+	color: #2a1a24;
+	border: none;
+}
+
+.w-pill.danger {
+	border-color: rgba(249, 38, 38, 0.55);
+}
+
+.w-pill:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+/* a meter: how full, with the number beside it */
+.w-meter {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.45rem;
+	min-width: 6rem;
+}
+
+.w-meter > span:first-child {
+	flex: 1;
+	height: 6px;
+	border-radius: 3px;
+	background: rgba(255, 255, 255, 0.12);
+	overflow: hidden;
+	min-width: 3rem;
+}
+
+.w-meter > span:first-child > span {
+	display: block;
+	height: 100%;
+	border-radius: 3px;
+	background: #3987e5;
+}
+
+.w-meter.warn > span:first-child > span {
+	background: #c98500;
+}
+
+.w-meter.bad > span:first-child > span {
+	background: #e66767;
+}
+
+.w-segmented {
+	display: flex;
+	flex-wrap: wrap;
+	padding: 0.2rem;
+	gap: 0.15rem;
+	border-radius: 1.4rem;
+	border: 1px solid rgba(255, 255, 255, 0.18);
+	background: rgba(0, 0, 0, 0.25);
+	align-self: flex-start;
+}
+
+.w-segmented button {
+	border: none;
+	border-radius: 1.2rem;
+	padding: 0.4rem 0.85rem;
+	background: none;
+	color: rgba(255, 255, 255, 0.85);
+	font-family: inherit;
+	font-size: 0.85rem;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.w-segmented button.active {
+	background: var(--home-card-on);
+	color: #2a1a24;
+}

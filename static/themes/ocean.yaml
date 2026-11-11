@@ -1,0 +1,32 @@
+title: ocean
+author: ha-fusion
+attribution: ''
+theme:
+  colors-text: rgb(255, 255, 255)
+  colors-icon: rgb(255, 255, 255)
+  colors-title: rgb(255, 255, 255)
+  colors-sidebar-border: 1px solid rgba(255, 255, 255, 0.18)
+  colors-sidebar-background: rgba(0, 0, 0, 0.15)
+  sizes-sidebar-time: 2.6rem
+  background-image: 'radial-gradient(ellipse at 30% -10%, rgba(60, 180, 200, 0.45) 0%, transparent 55%), linear-gradient(165deg, #144552 0%, #0e3240 50%, #08202b 100%)'
+  font-family: "'Inter Variable', system-ui"
+  button-background-color-on: rgb(255, 255, 255)
+  button-background-color-off: rgba(255, 255, 255, 0.1)
+  drawer-button-background-color: rgba(255, 255, 255, 0.1)
+  button-name-color-on: rgb(0, 0, 0)
+  button-name-color-off: rgb(255, 255, 255)
+  button-state-color-on: DimGray
+  button-state-color-off: rgba(255, 255, 255, 0.65)
+  modal-background-color: rgba(0, 0, 0, 0.3)
+  border-radius: 0.6rem
+  sidebar-font-size: 0.9rem
+  sidebar-item-padding: 0.45rem 0.5rem
+  sidebar-padding: 0 0.85rem
+  drawer-font-size: 0.925rem
+  sidebar-divider: 1px solid rgba(255, 255, 255, 0.18)
+  navigate-background-color: rgba(255, 255, 255, 0.12)
+  app-color: '#0e3240'
+  modal-background-color-modal: rgb(8 32 43 / 82%)
+  home-accent: '#5eead4'
+  home-card-on: '#dff4f3'
+  home-bar: rgba(8, 32, 43, 0.65)

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="hr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="theme-color" content="#150f2a" />
+		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
+		<!-- on the home screen it opens like an app -->
+		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
+		<link rel="apple-touch-icon" href="%sveltekit.assets%/apple-touch-icon.png" />
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<meta name="apple-mobile-web-app-title" content="Bastion Heat" />
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover" style="background-image: var(--theme-background-image)">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>
