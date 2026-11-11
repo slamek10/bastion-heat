@@ -54,12 +54,13 @@ describe('rooms', () => {
 			thermostat: 22.5,
 			target: 21.5,
 			heating: true,
+			byBoiler: false,
 			windowOpen: false
 		});
 		expect(reading.used.map((u) => u.stale)).toEqual([false, false, false]);
 	});
 
-	it('without valves the main zone tells the target and whether it heats', () => {
+	it('without valves only the boiler tells whether it heats; no target', () => {
 		const room: Room = {
 			id: 'r',
 			name: 'Ured',
@@ -73,14 +74,12 @@ describe('rooms', () => {
 			'climate.zone': {
 				entity_id: 'climate.zone',
 				state: 'heat',
-				attributes: { temperature: 22, hvac_action: 'idle' }
+				attributes: { temperature: 22, hvac_action: 'heating' }
 			}
 		};
-		expect(roomReading(room, states, NOW, 90, 'climate.zone')).toMatchObject({
-			value: 20.9,
-			target: 22,
-			heating: false
-		});
+		const reading = roomReading(room, states, NOW, 90, 'climate.zone');
+		expect(reading).toMatchObject({ value: 20.9, heating: true, byBoiler: true });
+		expect(reading.target).toBeUndefined();
 	});
 
 	it('the house is the mean of the rooms that have a value', () => {

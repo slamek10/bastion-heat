@@ -82,12 +82,10 @@ export function roomReading(
 		value: aggregate(fresh, room.aggregation),
 		used,
 		thermostat: thermostats.length ? aggregate(thermostats, 'mean') : undefined,
-		target: targets.length
-			? Math.max(...targets)
-			: valves.length
-				? undefined
-				: numberOf(zone, 'temperature'),
+		// the main zone's target belongs to the thermostat's room, not to a room without valves
+		target: targets.length ? Math.max(...targets) : undefined,
 		heating,
+		byBoiler: !valves.length,
 		humidity: room.humidity ? numberOf(states[room.humidity]) : undefined,
 		windowOpen
 	};

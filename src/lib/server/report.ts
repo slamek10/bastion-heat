@@ -59,7 +59,8 @@ export async function makeReport(end = new Date()): Promise<Report> {
 	const rooms: RoomWeek[] = settings.rooms.map((room) => {
 		const thermostats = climateOf(room).map((id) => climates[id] ?? []);
 		const hours = thermostats.map((rows) => heatingHours(rows, start, end.getTime()));
-		const comforts = thermostats
+		// a target only from the room's own valves; the zone's belongs to the thermostat's room
+		const comforts = (room.trvs.length ? thermostats : [])
 			.map((rows) => comfort(rows, start, end.getTime()))
 			.filter((entry) => entry !== undefined);
 		const targets = comforts.map((entry) => entry.target);

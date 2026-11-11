@@ -179,6 +179,8 @@ export interface RoomReading {
 	target?: number;
 	/** a valve or the main zone is heating it right now */
 	heating: boolean;
+	/** no valves: only the boiler's state is known, not the room's own */
+	byBoiler: boolean;
 	humidity?: number;
 	windowOpen: boolean;
 }

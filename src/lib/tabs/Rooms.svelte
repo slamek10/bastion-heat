@@ -164,7 +164,9 @@
 			<Panel icon={room.icon || 'mdi:home-thermometer-outline'} title={room.name}>
 				{#snippet head()}
 					{#if reading.heating}<span class="tag heat"
-							><Icon icon="mdi:fire" height="0.9rem" />{$t('room_heating')}</span
+							><Icon icon="mdi:fire" height="0.9rem" />{$t(
+								reading.byBoiler ? 'room_boiler_heating' : 'room_heating'
+							)}</span
 						>{/if}
 					{#if $alerts.some((alert) => alert.key === `airing|${room.id}`)}<span class="tag air"
 							><Icon icon="mdi:weather-windy" height="0.9rem" />{$t('air_now')}</span
