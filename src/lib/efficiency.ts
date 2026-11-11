@@ -21,6 +21,8 @@ export interface Day {
 	outdoor?: number;
 	hdd: number;
 	kwh: number;
+	/** a meter reported this day; days without data stay out of the ratio */
+	metered?: boolean;
 }
 
 export interface Period {
@@ -61,6 +63,7 @@ export function dailyRows(outdoor: StatRow[], meters: StatRow[][], base = 18): D
 			const date = dateKey(startOf(row));
 			const day = days.get(date) ?? { date, hdd: 0, kwh: 0 };
 			day.kwh = round(day.kwh + row.change, 3);
+			day.metered = true;
 			days.set(date, day);
 		}
 	}
@@ -68,24 +71,34 @@ export function dailyRows(outdoor: StatRow[], meters: StatRow[][], base = 18): D
 }
 
 export function summarize(days: Day[], keyOf: (day: Day) => string, price = 0): Period[] {
-	const periods = new Map<string, Period>();
+	const periods = new Map<string, Period & { meteredHdd: number }>();
 	for (const day of days) {
 		const key = keyOf(day);
-		const period = periods.get(key) ?? { key, days: 0, hdd: 0, kwh: 0, heatingKwh: 0 };
+		const period = periods.get(key) ?? {
+			key,
+			days: 0,
+			hdd: 0,
+			kwh: 0,
+			heatingKwh: 0,
+			meteredHdd: 0
+		};
 		period.days++;
 		period.hdd += day.hdd;
 		period.kwh += day.kwh;
-		if (day.hdd > 0) period.heatingKwh += day.kwh;
+		if (day.hdd > 0 && day.metered) {
+			period.heatingKwh += day.kwh;
+			period.meteredHdd += day.hdd;
+		}
 		periods.set(key, period);
 	}
-	return [...periods.values()].map((period) => ({
+	return [...periods.values()].map(({ meteredHdd, ...period }) => ({
 		...period,
 		hdd: round(period.hdd),
 		kwh: round(period.kwh),
 		heatingKwh: round(period.heatingKwh),
 		perHdd:
-			period.hdd >= 5 && period.heatingKwh > 0
-				? round(period.heatingKwh / period.hdd, 2)
+			meteredHdd >= 5 && period.heatingKwh > 0
+				? round(period.heatingKwh / meteredHdd, 2)
 				: undefined,
 		...(price > 0 && { cost: round(period.kwh * price, 2) })
 	}));

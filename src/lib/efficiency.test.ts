@@ -25,9 +25,9 @@ describe('efficiency', () => {
 
 	it('makes days with degree-days and summed meters, a meter reset left out', () => {
 		expect(days).toEqual([
-			{ date: '2026-01-10', outdoor: 0, hdd: 18, kwh: 36 },
-			{ date: '2026-01-11', outdoor: 8, hdd: 10, kwh: 15 },
-			{ date: '2026-07-01', outdoor: 22, hdd: 0, kwh: 2 }
+			{ date: '2026-01-10', outdoor: 0, hdd: 18, kwh: 36, metered: true },
+			{ date: '2026-01-11', outdoor: 8, hdd: 10, kwh: 15, metered: true },
+			{ date: '2026-07-01', outdoor: 22, hdd: 0, kwh: 2, metered: true }
 		]);
 	});
 
@@ -35,6 +35,18 @@ describe('efficiency', () => {
 		const [january, july] = summarize(days, byMonth, 0.2);
 		expect(january).toMatchObject({ key: '2026-01', hdd: 28, kwh: 51, perHdd: 1.82, cost: 10.2 });
 		expect(july.perHdd).toBeUndefined();
+	});
+
+	it('leaves days without meter data out of the ratio', () => {
+		const gaps = dailyRows(
+			[
+				{ start: at('2026-01-10'), mean: 0 },
+				{ start: at('2026-01-11'), mean: 0 }
+			],
+			[[{ start: at('2026-01-10'), change: 36 }]]
+		);
+		const [january] = summarize(gaps, byMonth);
+		expect(january).toMatchObject({ hdd: 36, perHdd: 2 });
 	});
 
 	it('groups by season', () => {

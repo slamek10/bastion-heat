@@ -165,7 +165,7 @@ const hr = {
 	eff_better: 'manje energije za istu hladnoću',
 	eff_worse: 'više energije za istu hladnoću',
 	eff_hdd_season: 'Stupanj-dani ove sezone',
-	eff_hdd_hint: 'zbroj (baza {base} °C − vanjska) za dane ispod 15 °C',
+	eff_hdd_hint: 'koliko je bilo hladno: zbroj ({base} °C − prosjek vani) za dane ispod 15 °C',
 	eff_months: 'Zadnjih 12 mjeseci, kWh po stupanj-danu',
 	eff_no_data: 'Još nema dovoljno podataka.',
 	eff_month: 'Mjesec',

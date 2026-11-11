@@ -29,22 +29,24 @@
 	});
 
 	const BAR = '#3987e5';
-	const W = 640;
-	const H = 200;
+	let width = $state(640);
+	let W = $derived(Math.max(320, width));
+	const H = 220;
 	const PAD = { left: 40, right: 8, top: 12, bottom: 26 };
 	let bars = $derived.by(() => {
 		const months = data?.months ?? [];
 		const values = months.map((m) => m.perHdd ?? 0);
 		const max = Math.max(...values, 0.1) * 1.1;
 		const step = (W - PAD.left - PAD.right) / Math.max(months.length, 1);
+		const barWidth = Math.min(step * 0.64, 56);
 		const y = (v: number) => H - PAD.bottom - (v / max) * (H - PAD.top - PAD.bottom);
 		const ticks = [0, max / 2, max].map((v) => Math.round(v * 10) / 10);
 		return {
 			ticks: ticks.map((v) => ({ v, y: y(v) })),
 			items: months.map((month, i) => ({
 				month,
-				x: PAD.left + i * step + step * 0.18,
-				width: step * 0.64,
+				x: PAD.left + i * step + (step - barWidth) / 2,
+				width: barWidth,
 				y: y(month.perHdd ?? 0),
 				height: H - PAD.bottom - y(month.perHdd ?? 0)
 			}))
@@ -105,40 +107,42 @@
 
 		<Panel icon="mdi:chart-bar" title={$t('eff_months')} wide>
 			{#if bars.items.some((item) => item.month.perHdd !== undefined)}
-				<svg viewBox="0 0 {W} {H}" role="img" aria-label={$t('eff_months')}>
-					{#each bars.ticks as tick (tick.v)}
-						<line class="grid" x1={PAD.left} x2={W - PAD.right} y1={tick.y} y2={tick.y} />
-						<text class="axis" x={PAD.left - 6} y={tick.y + 4} text-anchor="end">{tick.v}</text>
-					{/each}
-					{#each bars.items as item (item.month.key)}
-						<g class="bar">
-							<title
-								>{label(item.month.key)}: {item.month.perHdd ?? '—'}
-								{$t('eff_unit')} · {item.month.kwh} kWh · {item.month.hdd} °Cd</title
-							>
-							<rect
-								class="hit"
-								x={item.x - 4}
-								y={PAD.top}
-								width={item.width + 8}
-								height={H - PAD.top - PAD.bottom}
-							/>
-							{#if item.height > 0}
+				<div class="chart" bind:clientWidth={width}>
+					<svg viewBox="0 0 {W} {H}" width={W} height={H} role="img" aria-label={$t('eff_months')}>
+						{#each bars.ticks as tick (tick.v)}
+							<line class="grid" x1={PAD.left} x2={W - PAD.right} y1={tick.y} y2={tick.y} />
+							<text class="axis" x={PAD.left - 6} y={tick.y + 4} text-anchor="end">{tick.v}</text>
+						{/each}
+						{#each bars.items as item (item.month.key)}
+							<g class="bar">
+								<title
+									>{label(item.month.key)}: {item.month.perHdd ?? '—'}
+									{$t('eff_unit')} · {item.month.kwh} kWh · {item.month.hdd} °Cd</title
+								>
 								<rect
-									x={item.x}
-									y={item.y}
-									width={item.width}
-									height={item.height}
-									rx="4"
-									fill={BAR}
+									class="hit"
+									x={item.x - 4}
+									y={PAD.top}
+									width={item.width + 8}
+									height={H - PAD.top - PAD.bottom}
 								/>
-							{/if}
-						</g>
-						<text class="axis" x={item.x + item.width / 2} y={H - 8} text-anchor="middle"
-							>{label(item.month.key)}</text
-						>
-					{/each}
-				</svg>
+								{#if item.height > 0}
+									<rect
+										x={item.x}
+										y={item.y}
+										width={item.width}
+										height={item.height}
+										rx="4"
+										fill={BAR}
+									/>
+								{/if}
+							</g>
+							<text class="axis" x={item.x + item.width / 2} y={H - 8} text-anchor="middle"
+								>{label(item.month.key)}</text
+							>
+						{/each}
+					</svg>
+				</div>
 			{:else}
 				<p class="w-dim">{$t('eff_no_data')}</p>
 			{/if}
@@ -252,11 +256,14 @@
 		color: #ffb48f;
 	}
 
-	svg {
+	.chart {
 		width: 100%;
-		height: auto;
-		display: block;
 		margin-bottom: 0.8rem;
+	}
+
+	svg {
+		display: block;
+		max-width: 100%;
 	}
 
 	.grid {
@@ -265,7 +272,7 @@
 
 	.axis {
 		fill: rgba(255, 255, 255, 0.6);
-		font-size: 11px;
+		font-size: 12px;
 	}
 
 	.hit {

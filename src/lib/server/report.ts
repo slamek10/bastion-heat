@@ -89,8 +89,9 @@ export async function makeReport(end = new Date()): Promise<Report> {
 	const sum = (list: typeof allDays, pick: (day: (typeof allDays)[number]) => number) =>
 		list.reduce((total, day) => total + pick(day), 0);
 	const ratio = (list: typeof allDays) => {
-		const hdd = sum(list, (day) => day.hdd);
-		const kwh = sum(list, (day) => (day.hdd > 0 ? day.kwh : 0));
+		const heating = list.filter((day) => day.hdd > 0 && day.metered);
+		const hdd = sum(heating, (day) => day.hdd);
+		const kwh = sum(heating, (day) => day.kwh);
 		return hdd >= 5 && kwh > 0 ? round(kwh / hdd, 2) : undefined;
 	};
 	const week = inWeek(start, end.getTime());
