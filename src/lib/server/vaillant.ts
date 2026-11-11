@@ -1,7 +1,7 @@
 /**
  * Vaillant's daily energy, through the myPyllant integration's
  * `mypyllant.export` action (no Vaillant password in Heat). Kept in
- * data/vaillant.json: the whole history once (in 60-day pieces, a minute
+ * data/vaillant.json: the whole history once (in 59-day pieces, a minute
  * apart, back to the boiler's first data), then the last 7 days every
  * morning, since Vaillant fills a day in late. Vaillant limits API calls,
  * so this stays at a few calls a day.
@@ -22,7 +22,12 @@ export interface VaillantStore {
 
 const FILE = 'vaillant.json';
 const DAY = 86_400_000;
-const CHUNK = 60;
+/**
+ * Vaillant allows at most 60 days at DAY resolution, counted in hours: a
+ * piece over the October clock change (+02:00 → +01:00) is 60 days and an
+ * hour, and was refused with 416. 59 days stays under it either way.
+ */
+const CHUNK = 59;
 
 export const loadVaillant = () => read<VaillantStore>(FILE, { days: {} });
 

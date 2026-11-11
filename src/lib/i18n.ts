@@ -172,7 +172,7 @@ const hr = {
 	source_meters: 'HA brojila',
 	source_vaillant: 'myVAILLANT',
 	source_vaillant_hint:
-		'Iste brojke kao u myVAILLANT aplikaciji, preko akcije mypyllant.export iz integracije myPyllant. Heat povuče svu povijest (u komadima od 60 dana, minutu razmaka), a zatim svako jutro u 05:30 zadnjih 7 dana. Plin za grijanje ide u učinkovitost, topla voda se prikazuje odvojeno.',
+		'Iste brojke kao u myVAILLANT aplikaciji, preko akcije mypyllant.export iz integracije myPyllant. Heat povuče svu povijest (u komadima od 59 dana, minutu razmaka), a zatim svako jutro u 05:30 zadnjih 7 dana. Plin za grijanje ide u učinkovitost, topla voda se prikazuje odvojeno.',
 	vaillant_status: '{days} dana, od {from} · zadnje povlačenje {at}',
 	vaillant_never: 'Još nije povučeno.',
 	vaillant_fetch: 'Povuci sad',
@@ -487,7 +487,7 @@ const en: typeof hr = {
 	source_meters: 'HA meters',
 	source_vaillant: 'myVAILLANT',
 	source_vaillant_hint:
-		"The same figures as the myVAILLANT app, through the myPyllant integration's mypyllant.export action. Heat pulls the whole history (in 60-day pieces, a minute apart), then every morning at 05:30 the last 7 days. Heating gas goes into the efficiency, hot water is shown apart.",
+		"The same figures as the myVAILLANT app, through the myPyllant integration's mypyllant.export action. Heat pulls the whole history (in 59-day pieces, a minute apart), then every morning at 05:30 the last 7 days. Heating gas goes into the efficiency, hot water is shown apart.",
 	vaillant_status: '{days} days, from {from} · last pulled {at}',
 	vaillant_never: 'Not pulled yet.',
 	vaillant_fetch: 'Pull now',
