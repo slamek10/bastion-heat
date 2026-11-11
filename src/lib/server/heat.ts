@@ -4,6 +4,7 @@
  * HA's card (sensor.bastion_heat_summary), every minute.
  */
 import { loadSettings } from '$lib/server/store';
+import { publish } from '$lib/server/bus';
 import { getState, haReady, setHaState, setWatched, watchedStates } from '$lib/server/ha';
 import { houseTemperature, roomReading } from '$lib/rooms';
 import type { Settings } from '$lib/types';
@@ -35,8 +36,13 @@ export function controllable(settings: Settings) {
 	return ids;
 }
 
+/**
+ * The entities the page follows; their current states go out at once, so a
+ * sensor just added to a room shows its value before it next changes.
+ */
 export async function refreshWatched() {
 	setWatched(entitiesOf(await loadSettings()));
+	publish({ kind: 'states', states: watchedStates() });
 }
 
 export async function currentRooms() {
