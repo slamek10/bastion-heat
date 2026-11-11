@@ -4,7 +4,16 @@
  */
 import { loadSettings } from '$lib/server/store';
 import { statistics } from '$lib/server/ha';
-import { byMonth, bySeason, dailyRows, seasonToDate, summarize, type Day } from '$lib/efficiency';
+import {
+	byMonth,
+	bySeason,
+	dailyRows,
+	seasonToDate,
+	summarize,
+	withVaillant,
+	type Day
+} from '$lib/efficiency';
+import { loadVaillant } from '$lib/server/vaillant';
 
 const global = globalThis as unknown as { __heatDays?: { at: number; key: string; days: Day[] } };
 
@@ -12,22 +21,25 @@ export async function days(): Promise<Day[]> {
 	const settings = await loadSettings();
 	const outdoor = settings.entities.outdoor;
 	if (!outdoor) return [];
-	const key = JSON.stringify([outdoor, settings.heatingEnergy, settings.hddBase]);
+	const vaillant = settings.energySource === 'vaillant' ? await loadVaillant() : undefined;
+	const meters = vaillant ? [] : settings.heatingEnergy;
+	const key = JSON.stringify([outdoor, meters, settings.hddBase, vaillant?.fetchedAt]);
 	const cached = global.__heatDays;
 	if (cached && cached.key === key && Date.now() - cached.at < 3_600_000) return cached.days;
 	const now = new Date();
 	const start = new Date(now.getMonth() >= 6 ? now.getFullYear() - 2 : now.getFullYear() - 3, 6, 1);
 	const [temperature, energy] = await Promise.all([
 		statistics([outdoor], start, 'day', ['mean']),
-		settings.heatingEnergy.length
-			? statistics(settings.heatingEnergy, start, 'day', ['change'])
+		meters.length
+			? statistics(meters, start, 'day', ['change'])
 			: Promise.resolve({} as Record<string, never[]>)
 	]);
-	const rows = dailyRows(
+	let rows = dailyRows(
 		temperature[outdoor] ?? [],
-		settings.heatingEnergy.map((id) => energy[id] ?? []),
+		meters.map((id) => energy[id] ?? []),
 		settings.hddBase
 	);
+	if (vaillant) rows = withVaillant(rows, vaillant.days);
 	global.__heatDays = { at: Date.now(), key, days: rows };
 	return rows;
 }
@@ -48,12 +60,19 @@ export async function efficiency() {
 		settings.energyPrice
 	);
 	return {
-		meters: settings.heatingEnergy.length,
+		meters: all.some((day) => day.metered) ? 1 : 0,
+		source: settings.energySource,
 		hddBase: settings.hddBase,
 		seasons,
 		months,
 		toDate: seasonToDate(all, now),
 		price: settings.energyPrice,
-		days: all.map(({ date, kwh, metered }) => ({ date, kwh, metered }))
+		days: all.map(({ date, kwh, metered, dhw, electric }) => ({
+			date,
+			kwh,
+			metered,
+			dhw,
+			electric
+		}))
 	};
 }

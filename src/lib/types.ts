@@ -78,6 +78,8 @@ export interface Settings {
 	frostLimit: number;
 	/** spots that aren't rooms but must not freeze: a garage, a cellar, the boiler room */
 	frostSensors: string[];
+	/** where the energy comes from: HA meters' statistics, or Vaillant's own figures (myPyllant) */
+	energySource: 'meters' | 'vaillant';
 	/** kWh meters of the heating (heat pump / boiler; gas in kWh) */
 	heatingEnergy: string[];
 	/** €/kWh, 0 = no cost shown */
@@ -141,6 +143,7 @@ export const DEFAULT_SETTINGS: Settings = {
 	frostAlerts: true,
 	frostLimit: 10,
 	frostSensors: [],
+	energySource: 'meters',
 	heatingEnergy: [],
 	energyPrice: 0,
 	hddBase: 18,

@@ -162,6 +162,20 @@ export function callService(domain: string, service: string, data: Record<string
 	return send({ type: 'call_service', domain, service, service_data: data });
 }
 
+/** an action that answers with data (supports_response), e.g. mypyllant.export */
+export async function callForResponse(
+	domain: string,
+	service: string,
+	data: Record<string, unknown>,
+	timeout = 120_000
+) {
+	const result = await send(
+		{ type: 'call_service', domain, service, service_data: data, return_response: true },
+		timeout
+	);
+	return result?.response as unknown;
+}
+
 export function getServices(): Promise<Record<string, Record<string, unknown>>> {
 	return send({ type: 'get_services' });
 }

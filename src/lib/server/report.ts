@@ -98,7 +98,7 @@ export async function makeReport(end = new Date()): Promise<Report> {
 	};
 	const week = inWeek(start, end.getTime());
 	const before = inWeek(start - 7 * DAY, start);
-	const meters = settings.heatingEnergy.length > 0 && week.some((day) => day.metered);
+	const meters = week.some((day) => day.metered);
 	const kwh = meters ? round(sum(week, (day) => day.kwh)) : undefined;
 	const perHdd = meters ? ratio(week) : undefined;
 	const previousPerHdd = meters ? ratio(before) : undefined;

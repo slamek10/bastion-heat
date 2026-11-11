@@ -15,13 +15,18 @@
 	let hovered = $state<number | undefined>();
 
 	const BAR = '#3987e5';
+	/** hot water, the categorical slot 2, stacked on heating */
+	const DHW = '#d95926';
+	let split = $derived(buckets.some((b) => b.dhw !== undefined));
+	let electric = $derived(buckets.some((b) => b.electric !== undefined));
+	const all = (b: { kwh: number; dhw?: number }) => b.kwh + (b.dhw ?? 0);
 	let width = $state(640);
 	let W = $derived(Math.max(320, width));
 	const H = 220;
 	const PAD = { left: 48, right: 8, top: 12, bottom: 26 };
 
 	let chart = $derived.by(() => {
-		const max = Math.max(...buckets.map((b) => b.kwh), 1) * 1.1;
+		const max = Math.max(...buckets.map(all), 1) * 1.1;
 		const step = (W - PAD.left - PAD.right) / Math.max(buckets.length, 1);
 		const barWidth = Math.max(2, Math.min(step - 2, 56));
 		const y = (v: number) => H - PAD.bottom - (v / max) * (H - PAD.top - PAD.bottom);
@@ -39,6 +44,9 @@
 				width: barWidth,
 				y: y(bucket.kwh),
 				height: H - PAD.bottom - y(bucket.kwh),
+				/** hot water sits on top of heating, with a 2px gap */
+				dhwY: y(all(bucket)),
+				dhwHeight: Math.max(0, y(bucket.kwh) - y(all(bucket)) - 2),
 				label: i % every === 0
 			}))
 		};
@@ -65,7 +73,9 @@
 		});
 	}
 
-	let total = $derived(buckets.reduce((sum, b) => sum + b.kwh, 0));
+	let total = $derived(buckets.reduce((sum, b) => sum + all(b), 0));
+	let heatingTotal = $derived(buckets.reduce((sum, b) => sum + b.kwh, 0));
+	const one = (value: number) => Math.round(value * 10) / 10;
 	let withData = $derived(buckets.filter((b) => b.metered));
 	const money = (value?: number) => (value === undefined ? '—' : `${value.toFixed(2)} €`);
 	const SPANS: Span[] = ['day', 'week', 'month', 'year'];
@@ -87,7 +97,7 @@
 		<p class="w-dim">{$t('eff_no_data')}</p>
 	{:else}
 		<p class="sum">
-			<span><strong>{Math.round(total * 10) / 10}</strong> kWh</span>
+			<span><strong>{one(total)}</strong> kWh</span>
 			{#if price > 0}<span><strong>{(total * price).toFixed(2)}</strong> €</span>{/if}
 			<span class="w-dim"
 				>{$t('use_avg', {
@@ -96,6 +106,12 @@
 				})}</span
 			>
 		</p>
+		{#if split}
+			<div class="legend">
+				<span><i style:background={BAR}></i>{$t('use_heating')} {one(heatingTotal)} kWh</span>
+				<span><i style:background={DHW}></i>{$t('use_dhw')} {one(total - heatingTotal)} kWh</span>
+			</div>
+		{/if}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="chart" bind:clientWidth={width} onmouseleave={() => (hovered = undefined)}>
 			<svg viewBox="0 0 {W} {H}" width={W} height={H} role="img" aria-label={$t('use_title')}>
@@ -124,7 +140,18 @@
 								rx={Math.min(4, bar.width / 2)}
 								fill={BAR}
 							/>
-						{:else if !bar.bucket.metered}
+						{/if}
+						{#if bar.bucket.metered && bar.dhwHeight > 0}
+							<rect
+								x={bar.x}
+								y={bar.dhwY}
+								width={bar.width}
+								height={bar.dhwHeight}
+								rx={Math.min(4, bar.width / 2)}
+								fill={DHW}
+							/>
+						{/if}
+						{#if !bar.bucket.metered}
 							<line
 								class="missing"
 								x1={bar.x}
@@ -146,11 +173,22 @@
 				<div
 					class="tip"
 					style:left="{Math.min(Math.max(bar.x + bar.width / 2, 80), W - 80)}px"
-					style:top="{Math.max(bar.y - 8, 40)}px"
+					style:top="{Math.max(bar.dhwY - 8, 40)}px"
 				>
 					<strong>{label(bar.bucket.key, true)}</strong>
 					{#if bar.bucket.metered}
-						<span>{bar.bucket.kwh} kWh{price > 0 ? ` · ${money(bar.bucket.cost)}` : ''}</span>
+						{#if split}
+							<span>{$t('use_heating')}: {bar.bucket.kwh} kWh</span>
+							<span>{$t('use_dhw')}: {bar.bucket.dhw ?? 0} kWh</span>
+						{/if}
+						<span
+							>{split ? `${$t('use_total')}: ` : ''}{one(all(bar.bucket))} kWh{price > 0
+								? ` · ${money(bar.bucket.cost)}`
+								: ''}</span
+						>
+						{#if bar.bucket.electric !== undefined}<span class="w-dim"
+								>{$t('use_electric')}: {bar.bucket.electric} kWh</span
+							>{/if}
 						{#if bar.bucket.metered < bar.bucket.days}<span class="w-dim"
 								>{$t('use_partial', {
 									n: String(bar.bucket.metered),
@@ -169,7 +207,12 @@
 				<thead>
 					<tr>
 						<th>{$t(`use_${span}`)}</th>
-						<th class="num">kWh</th>
+						{#if split}
+							<th class="num">{$t('use_heating')}</th>
+							<th class="num">{$t('use_dhw')}</th>
+						{/if}
+						<th class="num">{split ? $t('use_total') : 'kWh'}</th>
+						{#if electric}<th class="num">{$t('use_electric')}</th>{/if}
 						<th class="num">{$t('eff_cost')}</th>
 						<th class="num">{$t('use_days_data')}</th>
 					</tr>
@@ -178,7 +221,12 @@
 					{#each [...buckets].reverse() as bucket (bucket.key)}
 						<tr>
 							<td>{label(bucket.key, true)}</td>
-							<td class="num">{bucket.metered ? bucket.kwh : '—'}</td>
+							{#if split}
+								<td class="num">{bucket.metered ? bucket.kwh : '—'}</td>
+								<td class="num">{bucket.metered ? (bucket.dhw ?? 0) : '—'}</td>
+							{/if}
+							<td class="num">{bucket.metered ? one(all(bucket)) : '—'}</td>
+							{#if electric}<td class="num">{bucket.electric ?? '—'}</td>{/if}
 							<td class="num">{money(bucket.cost)}</td>
 							<td class="num" class:w-warn={bucket.metered < bucket.days}
 								>{bucket.metered}/{bucket.days}</td
@@ -208,6 +256,26 @@
 
 	.sum .w-dim {
 		font-size: 0.85rem;
+	}
+
+	.legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.3rem 1.2rem;
+		margin: 0 0 0.5rem;
+		font-size: 0.85rem;
+	}
+
+	.legend span {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	.legend i {
+		width: 0.7rem;
+		height: 0.7rem;
+		border-radius: 2px;
 	}
 
 	.chart {

@@ -4,12 +4,14 @@ import { startHa } from '$lib/server/ha';
 import { startSummary } from '$lib/server/heat';
 import { startChecks } from '$lib/server/checks';
 import { startReports } from '$lib/server/report';
+import { startVaillant } from '$lib/server/vaillant';
 
 if (!missingConfig().length) {
 	startHa();
 	startSummary();
 	startChecks();
 	startReports();
+	startVaillant();
 }
 
 const OPEN = ['/_api/health', '/_api/login'];

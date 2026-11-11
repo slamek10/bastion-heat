@@ -139,6 +139,10 @@ export async function PUT({ request }) {
 		frostSensors: Array.isArray(body.frostSensors)
 			? entities(body.frostSensors, 30)
 			: before.frostSensors,
+		energySource:
+			body.energySource === 'vaillant' || body.energySource === 'meters'
+				? body.energySource
+				: before.energySource,
 		heatingEnergy: Array.isArray(body.heatingEnergy)
 			? entities(body.heatingEnergy, 10)
 			: before.heatingEnergy,

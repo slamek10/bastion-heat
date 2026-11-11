@@ -23,6 +23,9 @@ export interface Day {
 	kwh: number;
 	/** a meter reported this day; days without data stay out of the ratio */
 	metered?: boolean;
+	/** from Vaillant: gas for hot water and the boiler's electricity, kWh (not in kwh) */
+	dhw?: number;
+	electric?: number;
 }
 
 export interface Period {
@@ -68,6 +71,25 @@ export function dailyRows(outdoor: StatRow[], meters: StatRow[][], base = 18): D
 		}
 	}
 	return [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** Vaillant's days in place of meters: heating gas is the energy, hot water apart */
+export function withVaillant(
+	days: Day[],
+	vaillant: Record<string, { heating: number; dhw: number; electric: number }>
+): Day[] {
+	const byDate = new Map(days.map((day) => [day.date, { ...day }]));
+	for (const [date, figures] of Object.entries(vaillant)) {
+		const day = byDate.get(date) ?? { date, hdd: 0, kwh: 0 };
+		byDate.set(date, {
+			...day,
+			kwh: round(figures.heating, 3),
+			dhw: round(figures.dhw, 3),
+			electric: round(figures.electric, 3),
+			metered: true
+		});
+	}
+	return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
 export function summarize(days: Day[], keyOf: (day: Day) => string, price = 0): Period[] {
@@ -135,6 +157,9 @@ export interface Bucket {
 	/** the first day, YYYY-MM-DD */
 	key: string;
 	kwh: number;
+	/** hot water gas, when the source gives it */
+	dhw?: number;
+	electric?: number;
 	/** days in the bucket a meter reported */
 	metered: number;
 	days: number;
@@ -162,6 +187,8 @@ export function consumption(days: Day[], span: Span, price = 0): Bucket[] {
 		if (day.metered) {
 			bucket.metered++;
 			bucket.kwh += day.kwh;
+			if (day.dhw !== undefined) bucket.dhw = (bucket.dhw ?? 0) + day.dhw;
+			if (day.electric !== undefined) bucket.electric = (bucket.electric ?? 0) + day.electric;
 		}
 		buckets.set(key, bucket);
 	}
@@ -171,6 +198,9 @@ export function consumption(days: Day[], span: Span, price = 0): Bucket[] {
 		.map((bucket) => ({
 			...bucket,
 			kwh: round(bucket.kwh),
-			...(price > 0 && bucket.metered && { cost: round(bucket.kwh * price, 2) })
+			...(bucket.dhw !== undefined && { dhw: round(bucket.dhw) }),
+			...(bucket.electric !== undefined && { electric: round(bucket.electric) }),
+			...(price > 0 &&
+				bucket.metered && { cost: round((bucket.kwh + (bucket.dhw ?? 0)) * price, 2) })
 		}));
 }

@@ -158,6 +158,26 @@
 		set({ entities: next });
 	}
 
+	let vaillant = $state<
+		{ days: number; from?: string; fetchedAt?: number; error?: string } | undefined
+	>();
+	async function loadVaillant() {
+		const response = await fetch('/_api/vaillant').catch(() => undefined);
+		if (response?.ok) vaillant = await response.json();
+	}
+	onMount(() => {
+		loadVaillant();
+	});
+	async function pullVaillant() {
+		const response = await fetch('/_api/vaillant', { method: 'POST' }).catch(() => undefined);
+		toast({
+			title: $t(response?.ok ? 'vaillant_started' : 'save_failed', { count: '' }),
+			message: '',
+			alert: !response?.ok
+		});
+		setTimeout(loadVaillant, 15_000);
+	}
+
 	let sending = $state(false);
 	async function test() {
 		sending = true;
@@ -428,16 +448,53 @@
 						/>
 					</div>
 				{:else if activeTab === 'energy'}
-					<div class="field column">
-						<span>{$t('heating_energy')}</span>
-						<MultiSelect
-							items={items(energyLike)}
-							selected={$settings.heatingEnergy}
-							onchange={(next) => set({ heatingEnergy: next })}
-							placeholder={$t('pick_entities')}
-						/>
-						<p class="hint">{$t('heating_energy_hint')}</p>
+					<div class="field">
+						<span>{$t('energy_source')}</span>
+						<div class="segmented">
+							<button
+								class:active={$settings.energySource === 'meters'}
+								onclick={() => set({ energySource: 'meters' })}>{$t('source_meters')}</button
+							>
+							<button
+								class:active={$settings.energySource === 'vaillant'}
+								onclick={() =>
+									set({ energySource: 'vaillant' }).then(() => {
+										if (!vaillant?.days) pullVaillant();
+									})}>{$t('source_vaillant')}</button
+							>
+						</div>
 					</div>
+					{#if $settings.energySource === 'vaillant'}
+						<p class="hint">{$t('source_vaillant_hint')}</p>
+						<div class="field">
+							<span class="hint">
+								{#if vaillant?.days}
+									{$t('vaillant_status', {
+										days: String(vaillant.days),
+										from: vaillant.from ?? '',
+										at: vaillant.fetchedAt ? new Date(vaillant.fetchedAt).toLocaleString() : '—'
+									})}
+								{:else}
+									{$t('vaillant_never')}
+								{/if}
+								{#if vaillant?.error}<br /><span class="w-warn">{vaillant.error}</span>{/if}
+							</span>
+							<button class="pill small" onclick={pullVaillant}>
+								<Icon icon="mdi:cloud-download-outline" height="1rem" />{$t('vaillant_fetch')}
+							</button>
+						</div>
+					{:else}
+						<div class="field column">
+							<span>{$t('heating_energy')}</span>
+							<MultiSelect
+								items={items(energyLike)}
+								selected={$settings.heatingEnergy}
+								onchange={(next) => set({ heatingEnergy: next })}
+								placeholder={$t('pick_entities')}
+							/>
+							<p class="hint">{$t('heating_energy_hint')}</p>
+						</div>
+					{/if}
 					<div class="field">
 						<span>{$t('energy_price')}</span>
 						<input
