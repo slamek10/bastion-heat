@@ -456,7 +456,37 @@
 							onchange={(e) => setNumber('hddBase', e.currentTarget.value)}
 						/>
 					</div>
-					<!-- report -->
+					<label class="switch">
+						<input
+							type="checkbox"
+							checked={$settings.report.enabled}
+							onchange={(e) =>
+								set({ report: { ...$settings.report, enabled: e.currentTarget.checked } })}
+						/>
+						<span>{$t('report_enabled')}</span>
+					</label>
+					<div class="field">
+						<span>{$t('report_when')}</span>
+						<select
+							value={$settings.report.weekday}
+							onchange={(e) =>
+								set({ report: { ...$settings.report, weekday: Number(e.currentTarget.value) } })}
+						>
+							{#each [1, 2, 3, 4, 5, 6, 7] as weekday (weekday)}
+								<option value={weekday}>{$t(`weekday_${weekday}` as Key)}</option>
+							{/each}
+						</select>
+						<select
+							value={$settings.report.hour}
+							onchange={(e) =>
+								set({ report: { ...$settings.report, hour: Number(e.currentTarget.value) } })}
+						>
+							{#each Array.from({ length: 24 }, (_, hour) => hour) as hour (hour)}
+								<option value={hour}>{String(hour).padStart(2, '0')}:00</option>
+							{/each}
+						</select>
+					</div>
+					<p class="hint">{$t('report_hint')}</p>
 				{:else if activeTab === 'notifications'}
 					<div class="field column">
 						<span>{$t('notify_services')}</span>

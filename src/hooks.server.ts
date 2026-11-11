@@ -3,11 +3,13 @@ import { hasSession, missingConfig } from '../auth.js';
 import { startHa } from '$lib/server/ha';
 import { startSummary } from '$lib/server/heat';
 import { startChecks } from '$lib/server/checks';
+import { startReports } from '$lib/server/report';
 
 if (!missingConfig().length) {
 	startHa();
 	startSummary();
 	startChecks();
+	startReports();
 }
 
 const OPEN = ['/_api/health', '/_api/login'];

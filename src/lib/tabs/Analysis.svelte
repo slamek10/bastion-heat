@@ -7,6 +7,7 @@
 	import { t } from '$lib/stores';
 	import type { Period } from '$lib/efficiency';
 	import Panel from '$lib/components/Panel.svelte';
+	import WeeklyReport from '$lib/components/WeeklyReport.svelte';
 	import Icon from '@iconify/svelte';
 	import { onMount } from 'svelte';
 
@@ -58,6 +59,7 @@
 </script>
 
 <main class="page">
+	<WeeklyReport />
 	{#if failed}
 		<p class="w-card warn">{failed}</p>
 	{:else if !data}

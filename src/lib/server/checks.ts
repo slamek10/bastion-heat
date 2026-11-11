@@ -4,7 +4,7 @@
  * Cold is told after ten minutes and again when it's over; airing at most
  * once in three hours per room. The page gets the current list.
  */
-import { loadSettings } from '$lib/server/store';
+import { loadSettings, read, write } from '$lib/server/store';
 import { getState } from '$lib/server/ha';
 import { currentRooms } from '$lib/server/heat';
 import { publish } from '$lib/server/bus';
@@ -107,6 +107,22 @@ export async function findAlerts(): Promise<Omit<Alert, 'since'>[]> {
 	return found;
 }
 
+export interface LoggedAlert {
+	key: string;
+	kind: Alert['kind'];
+	name: string;
+	at: number;
+}
+
+/** every alert that started, for the weekly report; the last 2000 */
+async function logAlerts(alerts: Omit<Alert, 'since'>[], at: number) {
+	const log = await read<LoggedAlert[]>('alert-log.json', []);
+	log.push(...alerts.map(({ key, kind, name }) => ({ key, kind, name, at })));
+	await write('alert-log.json', log.slice(-2000));
+}
+
+export const alertLog = () => read<LoggedAlert[]>('alert-log.json', []);
+
 async function tell(alert: Alert, over: boolean) {
 	const settings = await loadSettings();
 	if (!settings.notifyServices.length) return;
@@ -127,6 +143,8 @@ async function round() {
 	const now = Date.now();
 	const found = await findAlerts();
 	const keys = new Set(found.map((alert) => alert.key));
+	const fresh = found.filter((alert) => !state.alerts.has(alert.key));
+	if (fresh.length) await logAlerts(fresh, now);
 	for (const alert of found) {
 		const before = state.alerts.get(alert.key);
 		state.alerts.set(alert.key, {
