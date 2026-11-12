@@ -198,6 +198,8 @@ export async function PUT({ request }) {
 		frostSensors: Array.isArray(body.frostSensors)
 			? entities(body.frostSensors, 30)
 			: before.frostSensors,
+		healthAlerts: flag(body.healthAlerts, before.healthAlerts),
+		batteryLimit: Math.round(range(body.batteryLimit, 5, 50, before.batteryLimit)),
 		energySource:
 			body.energySource === 'vaillant' || body.energySource === 'meters'
 				? body.energySource

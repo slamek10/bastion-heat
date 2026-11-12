@@ -9,6 +9,7 @@
 		alerts,
 		brain,
 		call,
+		diagnostics,
 		editMode,
 		override,
 		rooms,
@@ -18,6 +19,8 @@
 		t
 	} from '$lib/stores';
 	import { dewPoint } from '$lib/comfort';
+	import { minutesToTarget } from '$lib/health';
+	import { duration } from '$lib/format';
 	import type { Room } from '$lib/types';
 	import { numberOf, zoneFor } from '$lib/rooms';
 	import type { Key } from '$lib/i18n';
@@ -245,6 +248,9 @@
 					{#if $alerts.some((alert) => alert.key === `cold|${room.id}`)}<span class="tag cold"
 							><Icon icon="mdi:snowflake-alert" height="0.9rem" />{$t('cold_now')}</span
 						>{/if}
+					{#if $alerts.some((alert) => alert.key === `stalled|${room.id}`)}<span class="tag cold"
+							><Icon icon="mdi:thermometer-alert" height="0.9rem" />{$t('stalled_now')}</span
+						>{/if}
 					{#if reading.windowOpen}<span class="tag window"
 							><Icon icon="mdi:window-open-variant" height="0.9rem" />{$t('room_window')}</span
 						>{/if}
@@ -303,6 +309,27 @@
 						>{/if}
 				</div>
 
+				{@const stats = $diagnostics?.rooms.find((entry) => entry.roomId === room.id)}
+				{#if stats && reading.controlled}
+					{@const eta = warming ? minutesToTarget(reading.value, target, stats.rate) : undefined}
+					<div class="facts stats">
+						{#if stats.rate !== undefined}
+							<span
+								><Icon icon="mdi:trending-up" height="0.95rem" />{$t('stats_rate', {
+									r: String(stats.rate)
+								})}</span
+							>
+							{#if eta !== undefined}<span class="eta"
+									>{$t('stats_eta', { m: duration(eta * 60, $settings.locale) })}</span
+								>{/if}
+						{:else if stats.hoursDay > 0}
+							<span class="w-dim">{$t('stats_none')}</span>
+						{/if}
+						{#if stats.hoursDay > 0}<span class="w-dim"
+								>{$t('stats_hours', { h: String(stats.hoursDay) })}</span
+							>{/if}
+					</div>
+				{/if}
 				{#if target !== undefined && (plan || (reading.controlled && targetsOf(room).length))}
 					<div class="target">
 						<span class="w-dim">{$t('target_temp')}</span>
@@ -598,6 +625,20 @@
 		gap: 0.3rem 1rem;
 		margin: 0.3rem 0 0.6rem;
 		font-size: 0.88rem;
+	}
+
+	.stats {
+		margin-top: -0.2rem;
+	}
+
+	.stats span {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+	}
+
+	.eta {
+		color: #ffb48f;
 	}
 
 	.pencil {

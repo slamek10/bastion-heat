@@ -121,7 +121,7 @@ export async function round() {
 					}
 				}
 				// a failed command is tried again after the gap, not every minute
-				mem.sent[item.entity] = { at: now, temp: item.temperature };
+				mem.sent[item.entity] = { at: now, temp: item.temperature, ...(!live && { dry: true }) };
 				done.push(decision);
 			}
 		}
@@ -163,6 +163,14 @@ export async function settingsChanged() {
 	await saveMemory();
 	await round().catch(() => {});
 }
+
+/** the last setpoint sent to each device, for the valves' health */
+export async function sentCommands() {
+	return { ...(await memory()).sent };
+}
+
+/** the plan of each room, as of the last round */
+export const currentPlans = () => state.plans;
 
 export const decisions = () => read<Decision[]>(LOG, []);
 

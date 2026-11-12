@@ -92,7 +92,7 @@
 		e.deviceClass === 'energy' || e.unit === 'kWh' || e.unit === 'Wh' || e.unit === 'MWh';
 
 	function setNumber(
-		key: 'humidityLimit' | 'co2Limit' | 'frostLimit' | 'energyPrice' | 'hddBase',
+		key: 'humidityLimit' | 'co2Limit' | 'frostLimit' | 'energyPrice' | 'hddBase' | 'batteryLimit',
 		value: string
 	) {
 		const number = Number(value.replace(',', '.'));
@@ -693,6 +693,24 @@
 							selected={$settings.frostSensors}
 							onchange={(next) => set({ frostSensors: next })}
 							placeholder={$t('pick_entities')}
+						/>
+					</div>
+					<label class="switch">
+						<input
+							type="checkbox"
+							checked={$settings.healthAlerts}
+							onchange={(e) => set({ healthAlerts: e.currentTarget.checked })}
+						/>
+						<span>{$t('health_alerts')}</span>
+					</label>
+					<p class="hint">{$t('health_alerts_hint')}</p>
+					<div class="field">
+						<span>{$t('battery_limit')}</span>
+						<input
+							class="text short"
+							value={$settings.batteryLimit}
+							inputmode="numeric"
+							onchange={(e) => setNumber('batteryLimit', e.currentTarget.value)}
 						/>
 					</div>
 				{:else if activeTab === 'energy'}

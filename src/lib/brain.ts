@@ -67,7 +67,7 @@ export interface Memory {
 	/** manual changes, until the next schedule block */
 	overrides: Record<string, Override>;
 	/** the last setpoint sent (or, in the trial mode, that would have been) */
-	sent: Record<string, { at: number; temp: number }>;
+	sent: Record<string, { at: number; temp: number; dry?: boolean }>;
 }
 
 export const emptyMemory = (): Memory => ({ calling: {}, overrides: {}, sent: {} });

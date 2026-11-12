@@ -232,3 +232,34 @@ export async function setHaState(
 	});
 	if (!response.ok) throw new Error(`HA ${response.status}`);
 }
+
+export interface RegistryEntry {
+	entity_id: string;
+	device_id?: string | null;
+	platform: string;
+	unique_id?: string;
+}
+
+const registry = globalThis as unknown as {
+	__heatRegistry?: { at: number; list: RegistryEntry[] };
+};
+
+/** HA's entity registry (which device and integration each entity belongs to), kept an hour */
+export async function entityRegistry(): Promise<RegistryEntry[]> {
+	const cached = registry.__heatRegistry;
+	if (cached && Date.now() - cached.at < 3_600_000) return cached.list;
+	try {
+		const list = ((await send({ type: 'config/entity_registry/list' })) as RegistryEntry[]).map(
+			({ entity_id, device_id, platform, unique_id }) => ({
+				entity_id,
+				device_id,
+				platform,
+				unique_id
+			})
+		);
+		registry.__heatRegistry = { at: Date.now(), list };
+		return list;
+	} catch {
+		return cached?.list ?? [];
+	}
+}

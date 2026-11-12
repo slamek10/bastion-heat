@@ -4,7 +4,22 @@
 	 * the AC, water pressure and presets, plus the rooms with their combined
 	 * temperatures. Changes go through /_api/ha/call.
 	 */
-	import { alerts, brain, call, house, settings, states, status, t } from '$lib/stores';
+	import {
+		ago,
+		alerts,
+		brain,
+		call,
+		diagnostics,
+		followDiagnostics,
+		house,
+		now,
+		settings,
+		states,
+		status,
+		t
+	} from '$lib/stores';
+	import type { AlertKind } from '$lib/types';
+	import { onMount } from 'svelte';
 	import type { Key } from '$lib/i18n';
 	import { numberOf } from '$lib/rooms';
 	import { pressureState, targetFlow } from '$lib/curve';
@@ -102,6 +117,32 @@
 			minute: '2-digit'
 		});
 
+	onMount(followDiagnostics);
+
+	const ALERT_ICONS: Record<AlertKind, string> = {
+		cold: 'mdi:snowflake-alert',
+		airing: 'mdi:window-open-variant',
+		valve: 'mdi:radiator-off',
+		battery: 'mdi:battery-alert-variant-outline',
+		pressure: 'mdi:gauge-low',
+		boiler: 'mdi:water-boiler-alert',
+		stalled: 'mdi:thermometer-alert'
+	};
+
+	/** "Soba", or "Soba · Ventil 2" when the room has several valves */
+	function valveName(roomId: string, entity: string) {
+		const room = $settings.rooms.find((entry) => entry.id === roomId);
+		if (!room) return entity;
+		if (room.trvs.length < 2) return room.name;
+		const own = room.labels?.[entity] || `${$t('label_valve')} ${room.trvs.indexOf(entity) + 1}`;
+		return `${room.name} · ${own}`;
+	}
+
+	const batteryIcon = (level: number) =>
+		level <= 10
+			? 'mdi:battery-outline'
+			: `mdi:battery-${Math.min(90, Math.max(10, Math.round(level / 10) * 10))}`;
+
 	const AC_MODES = [
 		{ mode: 'cool', icon: 'mdi:snowflake', key: 'ac_cool' },
 		{ mode: 'heat', icon: 'mdi:fire', key: 'ac_heat' },
@@ -139,10 +180,7 @@
 		<ul class="alerts" aria-label={$t('alerts')}>
 			{#each $alerts as alert (alert.key)}
 				<li class="alert {alert.kind}">
-					<Icon
-						icon={alert.kind === 'cold' ? 'mdi:snowflake-alert' : 'mdi:window-open-variant'}
-						height="1.2rem"
-					/>
+					<Icon icon={ALERT_ICONS[alert.kind] ?? 'mdi:alert-outline'} height="1.2rem" />
 					<span>{$t(alert.message as Key, alert.vars)}</span>
 				</li>
 			{/each}
@@ -297,6 +335,80 @@
 			</Panel>
 		{/if}
 
+		{#if $diagnostics && ($diagnostics.valves.length || $diagnostics.quota)}
+			{@const quota = $diagnostics.quota}
+			<Panel icon="mdi:radiator" title={$t('health_title')}>
+				{#if quota}
+					<div class="quota">
+						<div class="quota-head">
+							<span>{$t('quota_title')}</span>
+							<span class="w-dim"
+								>{$t('quota_line', {
+									calls: String(quota.calls),
+									limit: String(quota.limit)
+								})}</span
+							>
+						</div>
+						<div
+							class="bar"
+							role="meter"
+							aria-valuemin="0"
+							aria-valuemax={quota.limit}
+							aria-valuenow={quota.calls}
+							aria-label={$t('quota_title')}
+						>
+							<i
+								style:width="{Math.round(quota.used * 100)}%"
+								class:warn={quota.projected !== undefined && quota.projected > quota.limit}
+							></i>
+						</div>
+						{#if quota.projected !== undefined}
+							<p
+								class="small"
+								class:w-dim={quota.projected <= quota.limit}
+								class:w-warn={quota.projected > quota.limit}
+							>
+								{$t(quota.projected > quota.limit ? 'quota_over' : 'quota_projected', {
+									n: String(quota.projected)
+								})}
+							</p>
+						{/if}
+					</div>
+				{/if}
+				{#if $diagnostics.valves.length}
+					<table class="w-data valves">
+						<thead>
+							<tr>
+								<th></th>
+								<th>{$t('health_battery')}</th>
+								<th>{$t('health_seen')}</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each $diagnostics.valves as valve (valve.entity)}
+								<tr>
+									<td>
+										{valveName(valve.roomId, valve.entity)}
+										{#if valve.offline}<span class="w-bad small-tag">· {$t('health_offline')}</span>
+										{:else if valve.notResponding}<span class="w-warn small-tag"
+												>· {$t('health_late', { asked: String(valve.notResponding.asked) })}</span
+											>{/if}
+									</td>
+									<td class="num" class:w-warn={valve.batteryLow}>
+										{#if valve.battery !== undefined}
+											<Icon icon={batteryIcon(valve.battery)} height="0.95rem" />
+											{valve.battery}%
+										{:else}—{/if}
+									</td>
+									<td class="num w-dim">{valve.lastSeen ? ago(valve.lastSeen, $now) : '—'}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				{/if}
+			</Panel>
+		{/if}
+
 		{#if $brain}
 			<Panel icon="mdi:robot-outline" title={$t('brain_title')}>
 				{#snippet head()}
@@ -404,6 +516,65 @@
 	.alert.cold {
 		background: rgba(57, 135, 229, 0.28);
 		border: 1px solid rgba(169, 205, 246, 0.45);
+	}
+
+	.alert.valve,
+	.alert.battery,
+	.alert.stalled {
+		background: rgba(255, 210, 122, 0.16);
+		border: 1px solid rgba(255, 210, 122, 0.4);
+	}
+
+	.alert.pressure,
+	.alert.boiler {
+		background: rgba(224, 49, 47, 0.25);
+		border: 1px solid rgba(255, 140, 140, 0.45);
+	}
+
+	.quota {
+		margin-bottom: 0.8rem;
+	}
+
+	.quota-head {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.6rem;
+		font-size: 0.88rem;
+		margin-bottom: 0.35rem;
+	}
+
+	.bar {
+		height: 0.45rem;
+		border-radius: 1rem;
+		background: rgba(255, 255, 255, 0.12);
+		overflow: hidden;
+	}
+
+	.bar i {
+		display: block;
+		height: 100%;
+		border-radius: 1rem;
+		background: #199e70;
+	}
+
+	.bar i.warn {
+		background: #e0a43a;
+	}
+
+	.quota .small {
+		margin-top: 0.35rem;
+	}
+
+	.valves td {
+		font-size: 0.86rem;
+	}
+
+	.valves .num {
+		white-space: nowrap;
+	}
+
+	.small-tag {
+		font-size: 0.78rem;
 	}
 
 	.alert.airing {

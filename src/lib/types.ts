@@ -116,6 +116,10 @@ export interface Settings {
 	frostLimit: number;
 	/** spots that aren't rooms but must not freeze: a garage, a cellar, the boiler room */
 	frostSensors: string[];
+	/** warnings about the equipment: valves, batteries, water pressure, the boiler, a room not warming */
+	healthAlerts: boolean;
+	/** % at or below which a valve's battery is low */
+	batteryLimit: number;
 	/** where the energy comes from: HA meters' statistics, or Vaillant's own figures (myPyllant) */
 	energySource: 'meters' | 'vaillant';
 	/** kWh meters of the heating (heat pump / boiler; gas in kWh) */
@@ -184,6 +188,8 @@ export const DEFAULT_SETTINGS: Settings = {
 	frostAlerts: true,
 	frostLimit: 10,
 	frostSensors: [],
+	healthAlerts: true,
+	batteryLimit: 20,
 	energySource: 'meters',
 	heatingEnergy: [],
 	energyPrice: 0,
@@ -247,9 +253,11 @@ export interface Status {
 	ha: boolean;
 }
 
+export type AlertKind = 'airing' | 'cold' | 'valve' | 'battery' | 'pressure' | 'boiler' | 'stalled';
+
 export interface Alert {
 	key: string;
-	kind: 'airing' | 'cold';
+	kind: AlertKind;
 	/** the room's name or the spot's */
 	name: string;
 	/** i18n key and its values */
@@ -295,3 +303,34 @@ export type LiveMessage =
 	| { kind: 'status'; status: Status }
 	| { kind: 'states'; states: Record<string, HaState> }
 	| { kind: 'notice'; title: string; message: string; alert?: boolean };
+
+/** a valve as the health page shows it */
+export interface ValveReport {
+	entity: string;
+	roomId: string;
+	battery?: number;
+	batteryLow: boolean;
+	lastSeen?: number;
+	offline: boolean;
+	notResponding?: { asked: number; actual?: number; since: number };
+}
+
+/** how a room heated over the last week */
+export interface RoomStats {
+	roomId: string;
+	/** °C/h while it heats (median); none without enough heating */
+	rate?: number;
+	/** heating stretches it was measured on */
+	runs: number;
+	/** hours its valves (or the zone / AC) heated in the last 24 h */
+	hours24: number;
+	/** per day, over the last 7 days */
+	hoursDay: number;
+}
+
+export interface Diagnostics {
+	valves: ValveReport[];
+	quota?: { calls: number; limit: number; projected?: number; used: number };
+	rooms: RoomStats[];
+	at: number;
+}

@@ -5,6 +5,7 @@ import {
 	DEFAULT_SETTINGS,
 	type Alert,
 	type BrainStatus,
+	type Diagnostics,
 	type HaState,
 	type LiveMessage,
 	type Settings,
@@ -24,6 +25,31 @@ export const editMode = writable(false);
 export const brain = writable<BrainStatus | undefined>();
 /** airing advice and cold warnings, from the server */
 export const alerts = writable<Alert[]>([]);
+/** the valves, the Imou API calls and a week of heating per room (/_api/diagnostics) */
+export const diagnostics = writable<Diagnostics | undefined>();
+
+async function loadDiagnostics() {
+	const response = await fetch('/_api/diagnostics').catch(() => undefined);
+	if (response?.ok) diagnostics.set(await response.json());
+}
+
+/** loads them now and every two minutes, until the returned function is called */
+export function followDiagnostics() {
+	loadDiagnostics();
+	const timer = setInterval(loadDiagnostics, 2 * 60_000);
+	return () => clearInterval(timer);
+}
+
+/** "prije 5 min" */
+export function ago(at: number, nowMs: number) {
+	const minutes = Math.max(0, Math.round((nowMs - at) / 60_000));
+	const say = get(t);
+	if (minutes < 2) return say('ago_now');
+	if (minutes < 90) return say('ago_min', { n: String(minutes) });
+	if (minutes < 48 * 60) return say('ago_h', { n: String(Math.round(minutes / 60)) });
+	return say('ago_d', { n: String(Math.round(minutes / 1440)) });
+}
+
 /** a clock that moves every 30 s, so readings age on the page */
 export const now = writable(Date.now());
 
