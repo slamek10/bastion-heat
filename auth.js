@@ -4,6 +4,14 @@
  * needs APP_PASSWORD and HEAT_SECRET and refuses to work without them.
  */
 import { createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
+import {
+	SHARED_COOKIE,
+	SHARED_MAX_AGE,
+	createShared,
+	sharedEnabled,
+	sharedFromHeader,
+	validShared
+} from './bastion-session.js';
 
 export const COOKIE = 'bastion_heat_session';
 
@@ -44,5 +52,22 @@ export function cookieValue(header) {
 	return match ? decodeURIComponent(match[1]) : undefined;
 }
 
-export const hasSession = (cookieHeader) =>
-	missingConfig().length === 0 && same(cookieValue(cookieHeader) ?? '', sessionValue());
+/**
+ * Signed in: with the shared Bastion login on (BASTION_SESSION_SECRET), only
+ * its cookie counts, so signing out of any Bastion app signs out of this one
+ * too; without it, this app's own cookie.
+ */
+export function hasSession(cookieHeader) {
+	if (missingConfig().length) return false;
+	if (sharedEnabled()) return validShared(sharedFromHeader(cookieHeader));
+	return same(cookieValue(cookieHeader) ?? '', sessionValue());
+}
+
+/** the cookie a correct password gets: the shared one when it's on */
+export const loginCookie = () =>
+	sharedEnabled()
+		? { name: SHARED_COOKIE, value: createShared(), maxAge: SHARED_MAX_AGE }
+		: { name: COOKIE, value: sessionValue(), maxAge: 60 * 60 * 24 * 30 };
+
+/** signing out removes both, so no older cookie keeps the app open */
+export const logoutCookies = () => [COOKIE, SHARED_COOKIE];

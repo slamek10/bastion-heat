@@ -10,7 +10,7 @@ FROM node:22-alpine
 WORKDIR /app
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/server.js /app/auth.js /app/package.json ./
+COPY --from=builder /app/server.js /app/auth.js /app/bastion-session.js /app/package.json ./
 
 ENV PORT=5090 \
   NODE_ENV=production \

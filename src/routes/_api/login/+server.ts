@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { config } from '$lib/server/env';
-import { COOKIE, checkPassword, sessionValue } from '../../../../auth.js';
+import { checkPassword, loginCookie } from '../../../../auth.js';
 
 const WINDOW = 15 * 60_000;
 const MAX_FAILS = 5;
@@ -22,14 +22,16 @@ export async function POST({ request, cookies, getClientAddress }) {
 		return json({ ok: false }, { status: 401 });
 	}
 	fails.delete(address);
-	cookies.set(COOKIE, sessionValue(), {
+	const cookie = loginCookie();
+	cookies.set(cookie.name, cookie.value, {
 		path: '/',
 		httpOnly: true,
-		sameSite: 'strict',
+		// lax: the other Bastion apps link here and share this cookie
+		sameSite: 'lax',
 		// Secure only when the app is really served over https (APP_URL): adapter-node
 		// reports https either way, and a Secure cookie on plain http is thrown away
 		secure: config.publicUrl.startsWith('https:'),
-		maxAge: 60 * 60 * 24 * 30
+		maxAge: cookie.maxAge
 	});
 	return json({ ok: true });
 }
