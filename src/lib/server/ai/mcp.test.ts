@@ -2,7 +2,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { mcpRequest, openTurn } from './mcp';
+import { keyFor, mcpRequest, openTurn } from './mcp';
 
 beforeAll(() => {
 	process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'heat-mcp-'));
@@ -90,5 +90,38 @@ describe('mcp', () => {
 		).json();
 		expect(bad.result.isError).toBe(true);
 		turn.close();
+	});
+});
+
+describe('a key for the house assistant', () => {
+	const TOKEN = 'g'.repeat(40);
+	const listNames = async (key: string) =>
+		(
+			await (
+				await mcpRequest(
+					new Request('http://app/mcp', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+						body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })
+					})
+				)
+			).json()
+		).result.tools.map((tool: { name: string }) => tool.name);
+
+	it("only with bastion-ai's token, and only the reading tools", async () => {
+		process.env.BASTION_AI_TOKEN = TOKEN;
+		expect(keyFor(null)).toBeUndefined();
+		expect(keyFor('Bearer wrong')).toBeUndefined();
+		const key = keyFor(`Bearer ${TOKEN}`)!;
+		expect(key).toBeTruthy();
+		const names = await listNames(key);
+		expect(names.length).toBeGreaterThan(0);
+		expect(names.filter((name: string) => /^propose_|^request_action$/.test(name))).toEqual([]);
+		delete process.env.BASTION_AI_TOKEN;
+	});
+
+	it('nothing without a token set', () => {
+		delete process.env.BASTION_AI_TOKEN;
+		expect(keyFor(`Bearer ${TOKEN}`)).toBeUndefined();
 	});
 });

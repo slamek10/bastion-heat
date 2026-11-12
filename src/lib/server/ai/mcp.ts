@@ -16,6 +16,8 @@ export const TOOL_PREFIX = `mcp__${SERVER_NAME}__`;
 
 export interface TurnTools {
 	conversationId: string;
+	/** reading only: the proposals are neither listed nor run */
+	readOnly?: boolean;
 	/** a tool started / finished, and what it changed */
 	onTool?: (event: {
 		id: string;
@@ -52,6 +54,8 @@ function turnFor(header: string | null) {
 }
 
 const PROTOCOL = '2025-06-18';
+/** the tools that change something */
+const CHANGES = /^propose_/;
 
 type Rpc = { jsonrpc: '2.0'; id?: string | number | null; method?: string; params?: any };
 
@@ -79,7 +83,7 @@ async function handle(message: Rpc, turn: TurnTools) {
 			return answer(message.id, {});
 		case 'tools/list':
 			return answer(message.id, {
-				tools: TOOLS.map((tool) => ({
+				tools: TOOLS.filter((tool) => !turn.readOnly || !CHANGES.test(tool.name)).map((tool) => ({
 					name: tool.name,
 					description: tool.description,
 					inputSchema: tool.input_schema
@@ -91,7 +95,10 @@ async function handle(message: Rpc, turn: TurnTools) {
 			const id = `heat-${++callCount}`;
 			const summary = summarize(name, input as Record<string, unknown>);
 			turn.onTool?.({ id, name, summary });
-			const result = await runTool(name, input, turn.conversationId);
+			const result =
+				turn.readOnly && CHANGES.test(name)
+					? { content: 'Not available here: only reading.', isError: true, effects: undefined }
+					: await runTool(name, input, turn.conversationId);
 			turn.onTool?.({ id, name, summary, ok: !result.isError, effects: result.effects });
 			return answer(message.id, {
 				content: [{ type: 'text', text: result.content }],
@@ -103,6 +110,21 @@ async function handle(message: Rpc, turn: TurnTools) {
 				? undefined
 				: failure(message.id, -32601, `unknown method ${message.method}`);
 	}
+}
+
+/**
+ * A key for another Bastion app's assistant (Bastion HA's house assistant):
+ * asked for with bastion-ai's token, which every Bastion app has; reading
+ * tools only, for one turn (10 minutes). Undefined when the token is wrong.
+ */
+export function keyFor(authorization: string | null) {
+	const wanted = process.env.BASTION_AI_TOKEN || '';
+	const given = authorization?.match(/^Bearer\s+(\S+)$/)?.[1] ?? '';
+	if (wanted.length < 32) return undefined;
+	const a = Buffer.from(given);
+	const b = Buffer.from(wanted);
+	if (a.length !== b.length || !timingSafeEqual(a, b)) return undefined;
+	return openTurn({ conversationId: 'house', readOnly: true }).key;
 }
 
 /** one POST: a message or a batch; notifications get 202 */
