@@ -4,7 +4,7 @@
  * changed or truncated value fails to open instead of decrypting to garbage.
  */
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
-/** what is sealed: a few named secrets (the Claude key later) */
+/** what is sealed: a few named secrets (the Claude API key) */
 export type Secrets = Record<string, string>;
 
 const VERSION = 'v1';

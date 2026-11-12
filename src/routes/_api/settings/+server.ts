@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { loadSettings, saveSettings } from '$lib/server/store';
 import { refreshWatched } from '$lib/server/heat';
 import { settingsChanged } from '$lib/server/brain';
+import { cleanSchedule } from '$lib/server/schedule';
 import {
 	DEFAULT_SETTINGS,
 	type Aggregation,
@@ -82,34 +83,6 @@ function cleanPreset(input: any, index: number): Preset | undefined {
 			.filter((target: any) => target.entity_id)
 			.slice(0, 20)
 	};
-}
-
-const TIME = /^([01]\d|2[0-3]):[0-5]\d$|^24:00$/;
-const temp = (value: unknown, fallback: number) =>
-	Math.round(range(value, 5, 30, fallback) * 10) / 10;
-
-/** blocks with days, a start before the end and a temperature; at most 30 per room */
-function cleanSchedule(input: any): RoomSchedule | undefined {
-	if (!input || typeof input !== 'object') return undefined;
-	const blocks = (Array.isArray(input.blocks) ? input.blocks : [])
-		.map((block: any) => ({
-			days: [
-				...new Set<number>(
-					(Array.isArray(block?.days) ? block.days : [])
-						.map(Number)
-						.filter((day: number) => Number.isInteger(day) && day >= 1 && day <= 7)
-				)
-			].sort(),
-			from: typeof block?.from === 'string' && TIME.test(block.from) ? block.from : '',
-			to: typeof block?.to === 'string' && TIME.test(block.to) ? block.to : '',
-			temp: temp(block?.temp, 20)
-		}))
-		.filter(
-			(block: { days: number[]; from: string; to: string }) =>
-				block.days.length && block.from && block.to && block.from < block.to
-		)
-		.slice(0, 30);
-	return { enabled: flag(input.enabled, false), base: temp(input.base, 19), blocks };
 }
 
 function cleanSchedules(input: unknown, rooms: Room[], before: Settings['schedules']) {
@@ -215,6 +188,9 @@ export async function PUT({ request }) {
 			hour: Math.round(range(body.report?.hour, 0, 23, before.report.hour))
 		},
 		brain: cleanBrain(body.brain, before.brain),
+		aiEffort: ['low', 'medium', 'high'].includes(body.aiEffort as string)
+			? (body.aiEffort as Settings['aiEffort'])
+			: before.aiEffort,
 		schedules: cleanSchedules(body.schedules, rooms, before.schedules)
 	};
 	await saveSettings(settings);

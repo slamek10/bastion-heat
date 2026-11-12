@@ -12,7 +12,7 @@ import {
 	type Status
 } from '$lib/types';
 
-export type Tab = 'overview' | 'curve' | 'analysis';
+export type Tab = 'overview' | 'curve' | 'analysis' | 'assistant';
 
 export const settings = writable<Settings>({ ...DEFAULT_SETTINGS });
 export const states = writable<Record<string, HaState>>({});

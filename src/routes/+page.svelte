@@ -21,6 +21,7 @@
 	import Overview from '$lib/tabs/Overview.svelte';
 	import Curve from '$lib/tabs/Curve.svelte';
 	import Analysis from '$lib/tabs/Analysis.svelte';
+	import Assistant from '$lib/tabs/Assistant.svelte';
 
 	let { data } = $props();
 
@@ -69,6 +70,8 @@
 			<Overview />
 		{:else if $tab === 'curve'}
 			<Curve />
+		{:else if $tab === 'assistant'}
+			<Assistant />
 		{:else}
 			<Analysis />
 		{/if}

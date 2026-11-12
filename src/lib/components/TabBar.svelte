@@ -6,7 +6,8 @@
 	const tabs: { id: Tab; icon: string; key: Key }[] = [
 		{ id: 'overview', icon: 'mdi:radiator', key: 'tab_overview' },
 		{ id: 'curve', icon: 'mdi:chart-bell-curve-cumulative', key: 'tab_curve' },
-		{ id: 'analysis', icon: 'mdi:chart-box-outline', key: 'tab_analysis' }
+		{ id: 'analysis', icon: 'mdi:chart-box-outline', key: 'tab_analysis' },
+		{ id: 'assistant', icon: 'mdi:robot-outline', key: 'tab_assistant' }
 	];
 </script>
 

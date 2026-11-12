@@ -131,6 +131,8 @@ export interface Settings {
 	/** the weekly report: day (1 = Monday … 7 = Sunday) and hour */
 	report: { enabled: boolean; weekday: number; hour: number };
 	brain: BrainSettings;
+	/** how hard the assistant thinks: low is quick and cheap, high for harder questions */
+	aiEffort: 'low' | 'medium' | 'high';
 	/** weekly schedules by room id */
 	schedules: Record<string, RoomSchedule>;
 }
@@ -207,6 +209,7 @@ export const DEFAULT_SETTINGS: Settings = {
 		windows: true,
 		frostTemp: 7
 	},
+	aiEffort: 'medium',
 	schedules: {}
 };
 
@@ -333,4 +336,24 @@ export interface Diagnostics {
 	quota?: { calls: number; limit: number; projected?: number; used: number };
 	rooms: RoomStats[];
 	at: number;
+}
+
+/** a change the assistant asked for; nothing happens until the user presses Potvrdi */
+export interface Proposal {
+	id: string;
+	kind: 'schedule' | 'target';
+	roomId: string;
+	roomName: string;
+	/** one line: what changes */
+	label: string;
+	reason: string;
+	schedule?: RoomSchedule;
+	/** the schedule before, to show what changes */
+	before?: RoomSchedule;
+	temperature?: number;
+	created: number;
+	expires: number;
+	conversationId?: string;
+	status: 'waiting' | 'done' | 'rejected' | 'expired' | 'failed';
+	error?: string;
 }

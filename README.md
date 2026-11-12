@@ -2,7 +2,7 @@
 
 Heating with its own logic, in the Bastion family (next to [Bastion HA](https://github.com/slamek10/bastion-ha), [Bastion Cams](https://github.com/slamek10/bastion-cams) and [Bastion Watch](https://github.com/slamek10/bastion-watch)), with the same look. It runs as its own Docker stack and talks to Home Assistant; the devices stay in HA, Heat decides and calls them.
 
-**Status: phase 2 of 5 under way.** What works now:
+**Status: phases 1, 3 and 5 done; 2 and 4 partly.** What works now:
 
 - **Pregled:** Bastion HA's "Grijanje & PTV" overview: the heating circuit (target, modes, flow against the calculated flow), hot water (a boost when a `water_heater` entity offers one), the air conditioner, water pressure, presets, the brain's latest decisions, and every room in full.
 - **Krivulja:** the heating curve with the slope, calculated and actual flow, the deviation and where the system is now.
@@ -15,6 +15,9 @@ Heating with its own logic, in the Bastion family (next to [Bastion HA](https://
   - only real changes are sent, to one device at most every 15 minutes (open windows and frost excepted), because the valves' API calls are counted
   - it starts **in trial mode**: it decides and logs what it would do (Pregled → Automatika, `data/decisions.json`) and sends nothing until switched to "Upravlja", which asks first. Off by default; `BRAIN=off` disables it.
 - **Upozorenja:** airing advice when a room is humid and the air outside is drier (absolute humidity, so cold damp air still dries a room) or its CO₂ is high, and a cold warning when a room or an extra spot (garage, cellar) stays under the limit (10 °C) for ten minutes. On Pregled, on each room, and as phone notifications.
+- **Zdravlje (health):** Pregled → Ventili shows each valve's battery (found on the valve's device in HA's entity registry), when it last reported, offline (30 min unavailable) or not taking the brain's setpoint (15 min), and the Imou API calls of the month with the projection to its end. Each room shows its **heat-up rate** (°C/h while heating, median over the last 7 days), the time to its target while it heats and the hours a day it heated.
+- **Upozorenja o opremi:** a valve offline or not answering, a low battery (20 %), water pressure out of range for 10 minutes, myVAILLANT's problem sensors on or the boiler unreachable for 15 minutes, and a room heating 2 hours without getting 0.2 °C warmer. The phone notifications carry a **Utišaj 24 h** button.
+- **Asistent:** Claude (Opus 5.5) with read tools over the rooms, the system, hour-by-hour history, the brain's decisions, the equipment and energy. It can propose a room's **schedule** or **temperature**; a card in the chat shows the change (old and new schedule) and nothing happens until **Potvrdi**. The heating curve it can only recommend (it is set in the myVAILLANT app). The API key goes in Postavke → Asistent (sealed with `HEAT_SECRET`) or `ANTHROPIC_API_KEY`; conversations are kept in `data/conversations` (the last 50).
 - **Analiza:** energy per heating degree-day (HA's long-term statistics of the outdoor temperature and the chosen kWh meters): this season against the last one up to the same day, the last 12 months, every season with cost. And the **weekly report**: per room the average, target, min/max, hours of heating and alerts; energy, cost and kWh per degree-day against the week before; tips. Sent to the phone on the set day and hour, kept for 26 weeks, or made on demand.
 - **Potrošnja iz myVAILLANT-a:** with the energy source set to myVAILLANT, Heat takes Vaillant's own daily figures (the same as the app) through the myPyllant integration's `mypyllant.export` action: the whole history once, in 60-day pieces a minute apart, then the last 7 days every morning at 05:30 (Vaillant fills days in late and limits API calls). Heating gas drives the efficiency; hot water and the boiler's electricity are shown apart. No Vaillant password in Heat. `VAILLANT=off` disables it.
 - **Postavke:** rooms (sensors, how to combine them, radiator valves, AC, windows, humidity, CO₂), the system's entities, the brain and every room's schedule, alerts, energy and report, notifications, appearance.
@@ -25,9 +28,9 @@ Heating with its own logic, in the Bastion family (next to [Bastion HA](https://
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1 ✅  | App, the copy of the heating view, rooms from several sensors, back button                                                                                                                              |
 | 2 ◐   | The brain ✅ schedules, control by the room's own sensors (valves, main zone), windows, frost protection, trial mode, decision log; still to come: holidays, presence, boost, HA fallback if Heat stops |
-| 3     | History and health: heat-up rates, valve activity, TRV batteries and API quota, humidity and dew point                                                                                                  |
-| 4     | Energy and cost per source                                                                                                                                                                              |
-| 5     | The assistant                                                                                                                                                                                           |
+| 3 ✅  | History and health: heat-up rates, valve activity, TRV batteries and API quota, humidity and dew point, equipment warnings                                                                              |
+| 4 ◐   | Energy and cost ✅ myVAILLANT and meters, per degree-day, weekly report; still to come: VT/NT tariffs, cost per room                                                                                    |
+| 5 ✅  | The assistant: read tools, schedule and temperature proposals with Potvrdi                                                                                                                              |
 
 ## Security
 
@@ -36,6 +39,7 @@ Heating with its own logic, in the Bastion family (next to [Bastion HA](https://
 - The brain changes only the valves of rooms with a schedule and the main zone.
 - The page can change only climate (temperature, mode, preset) and water heater entities that are in the heating settings; nothing else in HA can be called through Heat.
 - The back button only takes `http(s)` addresses.
+- The assistant never calls HA itself: its only changes are proposals the user confirms on a card. Text from HA (names, states) is treated as data, not instructions. The Claude key is never sent back to the page.
 
 ## Install
 

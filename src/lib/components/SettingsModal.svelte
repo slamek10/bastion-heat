@@ -35,6 +35,12 @@
 			hint: 'set_notifications_hint'
 		},
 		{
+			id: 'assistant',
+			icon: 'mdi:robot-happy-outline',
+			title: 'tab_assistant',
+			hint: 'set_assistant_hint'
+		},
+		{
 			id: 'appearance',
 			icon: 'mdi:palette-outline',
 			title: 'appearance',
@@ -100,6 +106,32 @@
 	}
 
 	const set = (patch: Partial<Settings>) => saveSettings(patch).catch(() => {});
+
+	/* the Claude API key: set or removed here, never shown again */
+	let keyStatus = $state<{
+		configured: boolean;
+		source: 'saved' | 'env' | null;
+		last4: string | null;
+	}>();
+	let apiKey = $state('');
+	async function loadKey() {
+		const response = await fetch('/_api/ai/key').catch(() => undefined);
+		if (response?.ok) keyStatus = await response.json();
+	}
+	async function setKey(value: string) {
+		const response = await fetch('/_api/ai/key', {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ key: value })
+		}).catch(() => undefined);
+		if (response?.ok) {
+			keyStatus = await response.json();
+			apiKey = '';
+		} else toast({ title: $t('save_failed'), message: '', alert: true });
+	}
+	$effect(() => {
+		if (activeTab === 'assistant' && !keyStatus) loadKey();
+	});
 
 	/* rooms are edited as a whole and saved with one button */
 	// svelte-ignore state_referenced_locally
@@ -814,6 +846,46 @@
 						</select>
 					</div>
 					<p class="hint">{$t('report_hint')}</p>
+				{:else if activeTab === 'assistant'}
+					<div class="field column">
+						<span>{$t('ai_key')}</span>
+						<p class="hint">
+							{keyStatus?.configured
+								? $t('ai_key_set', {
+										last4: keyStatus.last4 ?? '',
+										source: $t(keyStatus.source === 'env' ? 'ai_key_env' : 'ai_key_saved')
+									})
+								: $t('ai_key_missing')}
+						</p>
+						<div class="row">
+							<input
+								class="text"
+								type="password"
+								autocomplete="off"
+								placeholder="sk-ant-…"
+								bind:value={apiKey}
+							/>
+							<button class="pill small" disabled={!apiKey.trim()} onclick={() => setKey(apiKey)}
+								>{$t('save')}</button
+							>
+							{#if keyStatus?.source === 'saved'}
+								<button class="pill small" onclick={() => setKey('')}>{$t('delete')}</button>
+							{/if}
+						</div>
+					</div>
+					<div class="field">
+						<span>{$t('ai_effort')}</span>
+						<select
+							class="text"
+							value={$settings.aiEffort}
+							onchange={(e) => set({ aiEffort: e.currentTarget.value as Settings['aiEffort'] })}
+						>
+							<option value="low">{$t('ai_effort_low')}</option>
+							<option value="medium">{$t('ai_effort_medium')}</option>
+							<option value="high">{$t('ai_effort_high')}</option>
+						</select>
+					</div>
+					<p class="hint">{$t('ai_effort_hint')}</p>
 				{:else if activeTab === 'notifications'}
 					<div class="field column">
 						<span>{$t('notify_services')}</span>
