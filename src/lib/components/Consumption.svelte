@@ -73,6 +73,26 @@
 		});
 	}
 
+	/** what the totals above the chart cover: the first shown day to the last with data */
+	let range = $derived.by(() => {
+		if (!buckets.length) return '';
+		const from = buckets[0].key;
+		const to = (days as Day[]).reduce((last, day) => (day.date > last ? day.date : last), from);
+		const date = (key: string) => new Date(`${key}T12:00:00`);
+		const show = (key: string) =>
+			span === 'year'
+				? key.slice(0, 4)
+				: span === 'month'
+					? date(key).toLocaleDateString(locale, { month: 'short', year: 'numeric' })
+					: date(key).toLocaleDateString(locale, {
+							day: 'numeric',
+							month: 'numeric',
+							year: 'numeric'
+						});
+		const [a, b] = [show(from), show(to)];
+		return `${a === b ? a : `${a} – ${b}`} (${$t(`use_n_${span}`, { n: String(buckets.length) })})`;
+	});
+
 	let total = $derived(buckets.reduce((sum, b) => sum + all(b), 0));
 	let heatingTotal = $derived(buckets.reduce((sum, b) => sum + b.kwh, 0));
 	const one = (value: number) => Math.round(value * 10) / 10;
@@ -96,6 +116,7 @@
 	{#if !withData.length}
 		<p class="w-dim">{$t('eff_no_data')}</p>
 	{:else}
+		<p class="range w-dim">{$t('use_range', { range })}</p>
 		<p class="sum">
 			<span><strong>{one(total)}</strong> kWh</span>
 			{#if price > 0}<span><strong>{(total * price).toFixed(2)}</strong> €</span>{/if}
@@ -240,6 +261,11 @@
 </Panel>
 
 <style>
+	.range {
+		margin: 0 0 0.2rem;
+		font-size: 0.82rem;
+	}
+
 	.sum {
 		display: flex;
 		flex-wrap: wrap;
