@@ -26,6 +26,10 @@ export interface Conversation {
 	updated: number;
 	messages: Anthropic.Beta.BetaMessageParam[];
 	display: DisplayItem[];
+	/** through bastion-ai: Claude Code's session, resumed next turn */
+	session?: string;
+	/** what happened outside the chat since the last turn, told with the next message */
+	notes?: string[];
 }
 
 const MAX_KEPT = 50;
@@ -98,6 +102,7 @@ export const turnActive = (id: string) => active.has(id);
 
 export function appendNote(conversation: Conversation, text: string) {
 	conversation.messages.push({ role: 'user', content: [{ type: 'text', text }] });
+	conversation.notes = [...(conversation.notes ?? []), text];
 	conversation.display.push({ kind: 'note', text, at: Date.now() });
 }
 

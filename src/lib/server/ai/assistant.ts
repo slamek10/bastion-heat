@@ -1,6 +1,11 @@
 /**
- * One assistant turn: the user's message, then Claude and the tools in a
- * loop until Claude answers, streamed to the page as it happens.
+ * One assistant turn: the user's message, then Claude and the tools until
+ * Claude answers, streamed to the page as it happens.
+ *
+ * Two ways to reach Claude: through bastion-ai (Claude Code on the
+ * household's subscription, BASTION_AI_URL + BASTION_AI_TOKEN),
+ * which calls Heat's tools back over /mcp; or, when that isn't set up,
+ * the Claude API with a key (paid per token).
  */
 import Anthropic from '@anthropic-ai/sdk';
 import { apiKey } from '$lib/server/ai/keys';
@@ -16,6 +21,7 @@ import {
 	type DisplayItem
 } from '$lib/server/ai/conversations';
 import { runTool, summarize, TOOLS } from '$lib/server/ai/tools';
+import { gateway, gatewayTurn } from '$lib/server/ai/gateway';
 import { loadSettings } from '$lib/server/store';
 import type { Settings } from '$lib/types';
 
@@ -23,7 +29,7 @@ export const MODEL = 'claude-opus-5-5';
 const MAX_ROUNDS = 15;
 
 /** stable, so the prompt cache holds it; what changes (time, data) comes through messages and tools */
-function systemPrompt(settings: Settings) {
+export function systemPrompt(settings: Settings) {
 	const language = settings.locale === 'hr' ? 'Croatian' : 'English';
 	return `You are the assistant inside Bastion Heat, the heating app of one household in Croatia. The house has a Vaillant heating system read through myVAILLANT (one heating zone with its own thermostat, a heating curve, hot water), Imou radiator valves (TRVs) in some rooms, room temperature sensors, and an air conditioner. Heat combines each room's sensors into one temperature and has a "brain" that heats every room by its weekly schedule: it opens a room's valves while the room is below its target (with hysteresis) and closes them when it is warm, and turns the main zone down to eco when no room needs heat. The brain can run in a trial mode where it only logs what it would do.
 
@@ -54,8 +60,9 @@ export async function assistantTurn(
 	conversationId: string | undefined,
 	emit: (event: TurnEvent) => void
 ) {
-	const key = await apiKey();
-	if (!key) throw new AssistantError('no_key');
+	const viaGateway = !!gateway();
+	const key = viaGateway ? '' : await apiKey();
+	if (!viaGateway && !key) throw new AssistantError('no_key');
 	const settings = await loadSettings();
 
 	let conversation: Conversation | undefined = conversationId
@@ -78,6 +85,28 @@ export async function assistantTurn(
 	push({ kind: 'user', text: message, at: Date.now() });
 	beginTurn(convo.id);
 	await saveConversation(convo);
+
+	if (viaGateway) {
+		const notes = convo.notes ?? [];
+		convo.notes = [];
+		try {
+			await gatewayTurn({
+				conversation: convo,
+				message: [...notes, `[${now}]`, message].join('\n'),
+				system: systemPrompt(settings),
+				effort: settings.aiEffort,
+				push,
+				emit
+			});
+		} catch (error) {
+			push({ kind: 'error', text: (error as Error).message.slice(0, 300), at: Date.now() });
+		} finally {
+			for (const note of endTurn(convo.id)) appendNote(convo, note);
+			await saveConversation(convo);
+			emit({ type: 'done' });
+		}
+		return;
+	}
 
 	const client = new Anthropic({ apiKey: key });
 	try {

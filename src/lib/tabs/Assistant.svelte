@@ -29,6 +29,17 @@
 	let busy = $state(false);
 	let input = $state('');
 	let hasKey = $state(true);
+	/** the subscription's use, as of the last answer */
+	let limits = $state<{ used?: number; window?: string; status?: string } | undefined>();
+	let engine = $state<'subscription' | 'api' | null>(null);
+	async function loadStatus() {
+		const response = await fetch('/_api/assistant/status').catch(() => undefined);
+		if (!response?.ok) return;
+		const body = await response.json();
+		engine = body.engine;
+		hasKey = !!body.engine;
+		limits = body.limits;
+	}
 	let list: HTMLElement | undefined = $state();
 
 	const examples = $derived($t('chat_examples').split('|'));
@@ -51,10 +62,7 @@
 	onMount(() => {
 		loadList();
 		loadProposals();
-		fetch('/_api/ai/key')
-			.then((response) => (response.ok ? response.json() : undefined))
-			.then((status) => (hasKey = !!status?.configured))
-			.catch(() => {});
+		loadStatus();
 	});
 
 	async function open(id: string) {
@@ -147,13 +155,17 @@
 		busy = false;
 		await loadList();
 		await loadProposals();
+		await loadStatus();
 	}
 
 	const ERRORS: Record<string, Key> = {
 		no_key: 'chat_no_key',
 		busy: 'chat_busy',
 		refusal: 'chat_refusal',
-		max_tokens: 'chat_cut'
+		max_tokens: 'chat_cut',
+		tools_down: 'chat_tools_down',
+		limit: 'chat_limit',
+		no_mcp_url: 'chat_no_mcp_url'
 	};
 	const errorText = (text: string) =>
 		ERRORS[text] ? $t(ERRORS[text]) : $t('chat_error', { message: text });
@@ -252,6 +264,14 @@
 			{/if}
 		</div>
 
+		{#if engine === 'subscription' && limits?.used !== undefined}
+			<p class="usage w-dim" class:w-warn={limits.used >= 0.8}>
+				{$t('chat_usage', {
+					p: String(Math.round(limits.used * 100)),
+					window: $t(limits.window === 'five_hour' ? 'chat_window_5h' : 'chat_window_week')
+				})}
+			</p>
+		{/if}
 		<form
 			class="composer"
 			onsubmit={(event) => {
@@ -491,6 +511,12 @@
 		to {
 			transform: rotate(360deg);
 		}
+	}
+
+	.usage {
+		margin: 0;
+		font-size: 0.75rem;
+		text-align: right;
 	}
 
 	.composer {

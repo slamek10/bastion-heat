@@ -114,9 +114,13 @@
 		last4: string | null;
 	}>();
 	let apiKey = $state('');
+	let subscription = $state<{ reachable: boolean; login: boolean; model?: string } | null>();
 	async function loadKey() {
-		const response = await fetch('/_api/ai/key').catch(() => undefined);
-		if (response?.ok) keyStatus = await response.json();
+		const response = await fetch('/_api/assistant/status').catch(() => undefined);
+		if (!response?.ok) return;
+		const body = await response.json();
+		keyStatus = body.key;
+		subscription = body.gateway ?? null;
 	}
 	async function setKey(value: string) {
 		const response = await fetch('/_api/ai/key', {
@@ -847,6 +851,23 @@
 					</div>
 					<p class="hint">{$t('report_hint')}</p>
 				{:else if activeTab === 'assistant'}
+					<div class="field column">
+						<span>{$t('ai_subscription')}</span>
+						<p
+							class="hint"
+							class:warn={subscription && (!subscription.reachable || !subscription.login)}
+						>
+							{subscription === null
+								? $t('ai_subscription_off')
+								: !subscription
+									? '…'
+									: !subscription.reachable
+										? $t('ai_subscription_unreachable')
+										: !subscription.login
+											? $t('ai_subscription_no_login')
+											: $t('ai_subscription_on', { model: subscription.model ?? '' })}
+						</p>
+					</div>
 					<div class="field column">
 						<span>{$t('ai_key')}</span>
 						<p class="hint">
