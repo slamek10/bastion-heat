@@ -135,7 +135,12 @@ export interface Settings {
 	aiEffort: 'low' | 'medium' | 'high';
 	/** weekly schedules by room id */
 	schedules: Record<string, RoomSchedule>;
+	/** Pregled's panels and cards, in order; empty = the default layout (src/lib/overview.ts) */
+	overview: OverviewBlock[];
 }
+
+/** a panel with its cards, or a card on its own */
+export type OverviewBlock = { group: string; title?: string; items: string[] } | { item: string };
 
 /** defaults from Bastion HA's heating card, so the first start shows the same house */
 export const DEFAULT_SETTINGS: Settings = {
@@ -210,7 +215,8 @@ export const DEFAULT_SETTINGS: Settings = {
 		frostTemp: 7
 	},
 	aiEffort: 'medium',
-	schedules: {}
+	schedules: {},
+	overview: []
 };
 
 /** an entity as Home Assistant reports it */

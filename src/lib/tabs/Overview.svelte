@@ -3,6 +3,10 @@
 	 * Bastion HA's "Grijanje & PTV" overview: the heating circuit, hot water,
 	 * the AC, water pressure and presets, plus the rooms with their combined
 	 * temperatures. Changes go through /_api/ha/call.
+	 *
+	 * The cards sit in panels (Centralno grijanje, Voda i tlak, Sobe, or the
+	 * user's own) or on their own; in edit mode a handle drags a card or a
+	 * whole panel anywhere (pointer events, so a finger works too).
 	 */
 	import {
 		ago,
@@ -10,21 +14,26 @@
 		brain,
 		call,
 		diagnostics,
+		editMode,
 		followDiagnostics,
 		house,
 		now,
+		rooms,
+		saveSettings,
 		settings,
 		states,
 		status,
 		t
 	} from '$lib/stores';
-	import type { AlertKind } from '$lib/types';
+	import type { AlertKind, OverviewBlock } from '$lib/types';
 	import { onMount } from 'svelte';
 	import type { Key } from '$lib/i18n';
 	import { numberOf } from '$lib/rooms';
 	import { pressureState, targetFlow } from '$lib/curve';
+	import { arrange, isGroup, moveGroup, moveItem, removeGroup, type Target } from '$lib/overview';
+	import { followRoomHistory } from '$lib/roomHistory.svelte';
 	import Panel from '$lib/components/Panel.svelte';
-	import Rooms from '$lib/tabs/Rooms.svelte';
+	import RoomCard from '$lib/components/RoomCard.svelte';
 	import Icon from '@iconify/svelte';
 
 	let e = $derived($settings.entities);
@@ -118,6 +127,207 @@
 		});
 
 	onMount(followDiagnostics);
+	onMount(followRoomHistory);
+
+	/* ---- the layout ---- */
+
+	let roomById = $derived(new Map($rooms.map((entry) => [entry.room.id, entry])));
+	let blocks = $derived(
+		arrange(
+			$settings.overview,
+			$settings.rooms.map((room) => room.id)
+		)
+	);
+
+	/** a card shows only when its entity is there */
+	function shown(id: string) {
+		switch (id) {
+			case 'zone':
+				return !!zone;
+			case 'ac':
+				return !!(ac && e.ac);
+			case 'dhw':
+				return !!(dhw || waterHeater);
+			case 'pressure':
+				return pressure !== undefined;
+			case 'valves':
+				return !!($diagnostics && ($diagnostics.valves.length || $diagnostics.quota));
+			case 'brain':
+				return !!$brain;
+			default:
+				return id.startsWith('room:') && roomById.has(id.slice(5));
+		}
+	}
+
+	const ITEM_TITLES: Record<string, Key> = {
+		zone: 'circuit_title',
+		ac: 'ac_title',
+		dhw: 'dhw_title',
+		pressure: 'pressure_title',
+		valves: 'health_title',
+		brain: 'brain_title'
+	};
+	const itemTitle = (id: string) =>
+		id.startsWith('room:')
+			? (roomById.get(id.slice(5))?.room.name ?? id)
+			: $t(ITEM_TITLES[id] ?? 'panel_new');
+
+	const GROUPS: Record<string, { key: Key; icon: string }> = {
+		central: { key: 'panel_central', icon: 'mdi:water-boiler' },
+		water: { key: 'panel_water', icon: 'mdi:water-outline' },
+		rooms: { key: 'rooms_title', icon: 'mdi:home-outline' }
+	};
+	const groupTitle = (block: { group: string; title?: string }) =>
+		block.title || $t(GROUPS[block.group]?.key ?? 'panel_new');
+
+	/** loose cards next to each other share one grid; a panel takes the whole width */
+	type Row =
+		| { group: Extract<OverviewBlock, { group: string }>; index: number }
+		| { loose: { id: string; index: number }[] };
+	let rows = $derived.by(() => {
+		const out: Row[] = [];
+		blocks.forEach((block, index) => {
+			if (isGroup(block)) {
+				if ($editMode || block.items.some(shown)) out.push({ group: block, index });
+				return;
+			}
+			if (!shown(block.item)) return;
+			const last = out.at(-1);
+			if (last && 'loose' in last) last.loose.push({ id: block.item, index });
+			else out.push({ loose: [{ id: block.item, index }] });
+		});
+		return out;
+	});
+
+	const store = (next: OverviewBlock[]) => saveSettings({ overview: next }).catch(() => {});
+
+	function addGroup() {
+		store([{ group: `p${Date.now().toString(36)}`, title: $t('panel_new'), items: [] }, ...blocks]);
+	}
+
+	const renameGroup = (group: string, title: string) =>
+		store(
+			blocks.map((block) =>
+				isGroup(block) && block.group === group
+					? { ...block, title: title.trim().slice(0, 40) || undefined }
+					: block
+			)
+		);
+
+	/* ---- drag & drop ---- */
+
+	type Drag = { item: string } | { group: string };
+	/** what is dragged, where the pointer is, and where it would land */
+	let drag = $state<(Drag & { x: number; y: number; label: string }) | undefined>();
+	let drop = $state<{
+		target: Target;
+		key: string;
+		side: 'left' | 'right' | 'top' | 'bottom' | 'in';
+	}>();
+	let scroller: ReturnType<typeof setInterval> | undefined;
+
+	function start(event: PointerEvent, what: Drag) {
+		if (event.button !== 0) return;
+		event.preventDefault();
+		drag = {
+			...what,
+			x: event.clientX,
+			y: event.clientY,
+			label:
+				'item' in what
+					? itemTitle(what.item)
+					: groupTitle(
+							blocks.find((b) => isGroup(b) && b.group === what.group) as { group: string }
+						)
+		};
+		drop = undefined;
+		window.addEventListener('pointermove', move);
+		window.addEventListener('pointerup', end);
+		window.addEventListener('pointercancel', cancel);
+		// near the top or bottom edge the page scrolls by itself
+		scroller = setInterval(() => {
+			if (!drag) return;
+			if (drag.y < 70) window.scrollBy(0, -14);
+			else if (drag.y > innerHeight - 70) window.scrollBy(0, 14);
+		}, 16);
+	}
+
+	function move(event: PointerEvent) {
+		if (!drag) return;
+		drag.x = event.clientX;
+		drag.y = event.clientY;
+		drop = targetAt(event.clientX, event.clientY);
+	}
+
+	/** the top-level place by height: before the first block whose middle is below the pointer */
+	function topAt(y: number): typeof drop {
+		const all = [...document.querySelectorAll<HTMLElement>('[data-block]')];
+		const hit = all.find((el) => {
+			const r = el.getBoundingClientRect();
+			return y < r.top + r.height / 2;
+		});
+		if (hit)
+			return { target: { top: Number(hit.dataset.block) }, key: hit.dataset.key!, side: 'top' };
+		const last = all.at(-1);
+		return last
+			? { target: { top: blocks.length }, key: last.dataset.key!, side: 'bottom' }
+			: undefined;
+	}
+
+	function targetAt(x: number, y: number): typeof drop {
+		if (!drag) return;
+		const el = document.elementFromPoint(x, y);
+		if (!el?.closest('[data-layout]')) return;
+		if ('item' in drag) {
+			const slot = el.closest<HTMLElement>('[data-item]');
+			if (slot) {
+				if (slot.dataset.item === drag.item) return;
+				const r = slot.getBoundingClientRect();
+				const after = x > r.left + r.width / 2;
+				const index = Number(slot.dataset.index) + (after ? 1 : 0);
+				const inside = slot.dataset.in;
+				return {
+					target: inside ? { group: inside, index } : { top: index },
+					key: slot.dataset.key!,
+					side: after ? 'right' : 'left'
+				};
+			}
+			const group = el.closest<HTMLElement>('[data-group]');
+			if (group) {
+				const id = group.dataset.group!;
+				const block = blocks.find((b) => isGroup(b) && b.group === id);
+				const index = block && isGroup(block) ? block.items.length : 0;
+				return { target: { group: id, index }, key: group.dataset.key!, side: 'in' };
+			}
+		}
+		return topAt(y);
+	}
+
+	function stop() {
+		window.removeEventListener('pointermove', move);
+		window.removeEventListener('pointerup', end);
+		window.removeEventListener('pointercancel', cancel);
+		clearInterval(scroller);
+		drag = undefined;
+		drop = undefined;
+	}
+
+	function end() {
+		if (drag && drop) {
+			if ('item' in drag) store(moveItem(blocks, drag.item, drop.target));
+			else if ('top' in drop.target) store(moveGroup(blocks, drag.group, drop.target.top));
+		}
+		stop();
+	}
+
+	const cancel = () => stop();
+
+	$effect(() => {
+		if (!$editMode && drag) stop();
+	});
+	onMount(() => stop);
+
+	const markOf = (key: string) => (drop?.key === key ? drop.side : undefined);
 
 	const ALERT_ICONS: Record<AlertKind, string> = {
 		cold: 'mdi:snowflake-alert',
@@ -202,8 +412,8 @@
 		</div>
 	{/if}
 
-	<div class="panels">
-		{#if zone}
+	{#snippet card(id: string)}
+		{#if id === 'zone' && zone}
 			<Panel icon="mdi:radiator" title={$t('circuit_title')}>
 				{#snippet head()}
 					<span class="w-dim">{zoneHeating ? $t('heating_active') : $t('idle')}</span>
@@ -251,9 +461,7 @@
 					</p>
 				{/if}
 			</Panel>
-		{/if}
-
-		{#if dhw || waterHeater}
+		{:else if id === 'dhw' && (dhw || waterHeater)}
 			<Panel icon="mdi:water-boiler" title={$t('dhw_title')}>
 				<p class="big-line">{waterHeater?.state ?? dhw?.state ?? $t('dhw_normal')}</p>
 				{#if waterHeater && boostMode}
@@ -272,9 +480,7 @@
 					<p class="w-dim small">{$t('dhw_no_boost')}</p>
 				{/if}
 			</Panel>
-		{/if}
-
-		{#if ac && e.ac}
+		{:else if id === 'ac' && ac && e.ac}
 			{@const acEntity = e.ac}
 			<Panel icon="mdi:air-conditioner" title={$t('ac_title')}>
 				{#snippet head()}
@@ -318,9 +524,7 @@
 					</button>
 				</div>
 			</Panel>
-		{/if}
-
-		{#if pressure !== undefined}
+		{:else if id === 'pressure' && pressure !== undefined}
 			<Panel icon="mdi:gauge" title={$t('pressure_title')}>
 				<p class="big-line" class:w-bad={pressureNow === 'low' || pressureNow === 'high'}>
 					{pressure} bar
@@ -333,9 +537,7 @@
 							: $t('pressure_ok')} · {$t('pressure_ideal')}
 				</p>
 			</Panel>
-		{/if}
-
-		{#if $diagnostics && ($diagnostics.valves.length || $diagnostics.quota)}
+		{:else if id === 'valves' && $diagnostics && ($diagnostics.valves.length || $diagnostics.quota)}
 			{@const quota = $diagnostics.quota}
 			<Panel icon="mdi:radiator" title={$t('health_title')}>
 				{#if quota}
@@ -407,9 +609,7 @@
 					</table>
 				{/if}
 			</Panel>
-		{/if}
-
-		{#if $brain}
+		{:else if id === 'brain' && $brain}
 			<Panel icon="mdi:robot-outline" title={$t('brain_title')}>
 				{#snippet head()}
 					<span class="tag" class:on={$brain.enabled && !$brain.dryRun} class:trial={$brain.dryRun}
@@ -444,10 +644,120 @@
 					{/if}
 				{/if}
 			</Panel>
+		{:else if id.startsWith('room:') && roomById.has(id.slice(5))}
+			{@const entry = roomById.get(id.slice(5))!}
+			<RoomCard room={entry.room} reading={entry.reading} />
 		{/if}
+	{/snippet}
+
+	{#snippet slot(id: string, inside: string, index: number)}
+		<div
+			class="slot"
+			class:lifted={drag && 'item' in drag && drag.item === id}
+			data-item={id}
+			data-in={inside}
+			data-index={index}
+			data-key="item:{id}"
+			data-block={inside ? undefined : index}
+			data-mark={markOf(`item:${id}`)}
+		>
+			{#if $editMode}
+				<button
+					class="handle"
+					onpointerdown={(event) => start(event, { item: id })}
+					aria-label="{$t('panel_drag')}: {itemTitle(id)}"
+					title={$t('panel_drag')}
+				>
+					<Icon icon="mdi:drag" height="1.2rem" />
+				</button>
+			{/if}
+			{@render card(id)}
+		</div>
+	{/snippet}
+
+	{#if $editMode}
+		<div class="layout-tools">
+			<button class="w-pill" onclick={addGroup}>
+				<Icon icon="mdi:plus" height="1rem" />{$t('panel_add')}
+			</button>
+			<button class="w-pill" onclick={() => store([])}>
+				<Icon icon="mdi:restore" height="1rem" />{$t('layout_reset')}
+			</button>
+			<span class="w-dim small">{$t('layout_hint')}</span>
+		</div>
+	{/if}
+
+	<div class="layout" data-layout>
+		{#each rows as row ('group' in row ? `g:${row.group.group}` : `l:${row.loose[0].id}`)}
+			{#if 'group' in row}
+				{@const group = row.group}
+				<section
+					class="w-card group"
+					class:lifted={drag && 'group' in drag && drag.group === group.group}
+					data-group={group.group}
+					data-block={row.index}
+					data-key="group:{group.group}"
+					data-mark={markOf(`group:${group.group}`)}
+				>
+					<h3>
+						{#if $editMode}
+							<button
+								class="handle inline"
+								onpointerdown={(event) => start(event, { group: group.group })}
+								aria-label="{$t('panel_drag')}: {groupTitle(group)}"
+								title={$t('panel_drag')}
+							>
+								<Icon icon="mdi:drag" height="1.2rem" />
+							</button>
+							<input
+								class="group-name"
+								value={groupTitle(group)}
+								maxlength="40"
+								aria-label={$t('panel_name')}
+								onchange={(event) => renameGroup(group.group, event.currentTarget.value)}
+								onkeydown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
+							/>
+							<button
+								class="remove"
+								onclick={() => store(removeGroup(blocks, group.group))}
+								aria-label={$t('panel_remove')}
+								title={$t('panel_remove')}
+							>
+								<Icon icon="mdi:trash-can-outline" height="1.1rem" />
+							</button>
+						{:else}
+							<Icon icon={GROUPS[group.group]?.icon ?? 'mdi:view-grid-outline'} height="1.15rem" />
+							<span>{groupTitle(group)}</span>
+						{/if}
+					</h3>
+					<div class="cards">
+						{#each group.items as id, index (id)}
+							{#if shown(id)}{@render slot(id, group.group, index)}{/if}
+						{/each}
+					</div>
+					{#if $editMode && !group.items.some(shown)}
+						<p class="empty w-dim">{$t('panel_empty')}</p>
+					{/if}
+				</section>
+			{:else}
+				<div class="cards loose">
+					{#each row.loose as item (item.id)}
+						{@render slot(item.id, '', item.index)}
+					{/each}
+				</div>
+			{/if}
+		{/each}
 	</div>
 
-	<Rooms />
+	{#if !$rooms.length}
+		<p class="w-card">{$t('no_rooms')}</p>
+	{/if}
+
+	{#if drag}
+		<div class="ghost" style:left="{drag.x}px" style:top="{drag.y}px">
+			<Icon icon="mdi:drag" height="1rem" />{drag.label}
+		</div>
+	{/if}
 </main>
 
 <style>
@@ -624,11 +934,183 @@
 		margin-bottom: 1rem;
 	}
 
-	.panels {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+	.layout {
+		display: flex;
+		flex-direction: column;
 		gap: 1rem;
+	}
+
+	.cards {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+		gap: 0.8rem;
 		align-items: start;
+	}
+
+	.cards.loose {
+		gap: 1rem;
+	}
+
+	/* a panel's own cards: lighter, so the panel reads as one thing */
+	.group {
+		padding: 0.9rem;
+	}
+
+	.group > h3 {
+		padding: 0 0.2rem;
+	}
+
+	.group :global(.w-card) {
+		background: rgba(255, 255, 255, 0.05);
+		border-color: rgba(255, 255, 255, 0.09);
+		backdrop-filter: none;
+		border-radius: 1rem;
+	}
+
+	.slot {
+		position: relative;
+		min-width: 0;
+		display: grid;
+	}
+
+	.lifted {
+		opacity: 0.35;
+	}
+
+	/* where a dragged card or panel would land */
+	[data-mark='left']::before,
+	[data-mark='right']::before,
+	[data-mark='top']::before,
+	[data-mark='bottom']::before {
+		content: '';
+		position: absolute;
+		z-index: 3;
+		border-radius: 2px;
+		background: #7fb4f0;
+		box-shadow: 0 0 10px #3987e5;
+		pointer-events: none;
+	}
+
+	[data-mark='left']::before,
+	[data-mark='right']::before {
+		top: 0;
+		bottom: 0;
+		width: 4px;
+	}
+
+	[data-mark='left']::before {
+		left: -0.55rem;
+	}
+
+	[data-mark='right']::before {
+		right: -0.55rem;
+	}
+
+	[data-mark='top']::before,
+	[data-mark='bottom']::before {
+		left: 0;
+		right: 0;
+		height: 4px;
+	}
+
+	[data-mark='top']::before {
+		top: -0.6rem;
+	}
+
+	[data-mark='bottom']::before {
+		bottom: -0.6rem;
+	}
+
+	.group {
+		position: relative;
+	}
+
+	.group[data-mark='in'] {
+		border-color: #7fb4f0;
+		box-shadow: 0 0 0 1px #7fb4f0 inset;
+	}
+
+	.handle {
+		position: absolute;
+		z-index: 2;
+		top: -0.55rem;
+		left: -0.55rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 50%;
+		border: 1px solid rgba(255, 255, 255, 0.3);
+		background: #3987e5;
+		color: white;
+		cursor: grab;
+		touch-action: none;
+	}
+
+	.handle.inline {
+		position: static;
+		flex: none;
+	}
+
+	.group-name {
+		flex: 1;
+		min-width: 0;
+		padding: 0.3rem 0.6rem;
+		border-radius: 0.5rem;
+		border: 1px solid rgba(255, 255, 255, 0.3);
+		background: rgba(0, 0, 0, 0.3);
+		color: white;
+		font: inherit;
+	}
+
+	.remove {
+		display: flex;
+		padding: 0.35rem;
+		border: none;
+		border-radius: 50%;
+		background: none;
+		color: inherit;
+		opacity: 0.7;
+		cursor: pointer;
+	}
+
+	.remove:hover {
+		opacity: 1;
+		background: rgba(224, 49, 47, 0.3);
+	}
+
+	.empty {
+		margin: 0;
+		padding: 1.4rem;
+		border: 1px dashed rgba(255, 255, 255, 0.25);
+		border-radius: 1rem;
+		text-align: center;
+		font-size: 0.88rem;
+	}
+
+	.layout-tools {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 0.8rem;
+		margin-bottom: 1rem;
+	}
+
+	.ghost {
+		position: fixed;
+		z-index: 50;
+		transform: translate(0.8rem, 0.8rem);
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0.45rem 0.85rem;
+		border-radius: 2rem;
+		background: #3987e5;
+		color: white;
+		font-size: 0.9rem;
+		pointer-events: none;
+		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 	}
 
 	.stepper {
@@ -715,6 +1197,14 @@
 	@media (max-width: 768px) {
 		.page {
 			padding: 0 0.75rem calc(7rem + env(safe-area-inset-bottom));
+		}
+
+		.cards {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.group {
+			padding: 0.7rem;
 		}
 	}
 </style>

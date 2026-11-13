@@ -129,9 +129,13 @@
 		color: #7fb4f0;
 	}
 
+	/*
+	 * as tall as the screen leaves after the header, the numbers, the panel's
+	 * title, the tip and the tab bar, so the page doesn't scroll
+	 */
 	svg {
 		width: 100%;
-		height: auto;
+		height: clamp(10rem, 100dvh - 28rem, 26rem);
 		display: block;
 	}
 
@@ -169,6 +173,11 @@
 	@media (max-width: 768px) {
 		.page {
 			padding: 0 0.75rem calc(7rem + env(safe-area-inset-bottom));
+		}
+
+		/* the four numbers take two rows here */
+		svg {
+			height: clamp(9rem, 100dvh - 33rem, 20rem);
 		}
 	}
 </style>

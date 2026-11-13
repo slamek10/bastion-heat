@@ -3,9 +3,11 @@ import { loadSettings, saveSettings } from '$lib/server/store';
 import { refreshWatched } from '$lib/server/heat';
 import { settingsChanged } from '$lib/server/brain';
 import { cleanSchedule } from '$lib/server/schedule';
+import { ITEM } from '$lib/overview';
 import {
 	DEFAULT_SETTINGS,
 	type Aggregation,
+	type OverviewBlock,
 	type Preset,
 	type BrainSettings,
 	type Room,
@@ -94,6 +96,29 @@ function cleanSchedules(input: unknown, rooms: Room[], before: Settings['schedul
 			.map(([id, value]) => [id, cleanSchedule(value)])
 			.filter(([, value]) => value)
 	) as Settings['schedules'];
+}
+
+/** Pregled's layout: panels with a short name and known cards, cards on their own */
+function cleanOverview(input: unknown, before: OverviewBlock[]): OverviewBlock[] {
+	if (!Array.isArray(input)) return before ?? [];
+	const items = (value: unknown) =>
+		Array.isArray(value)
+			? value.filter((id): id is string => typeof id === 'string' && ITEM.test(id)).slice(0, 80)
+			: [];
+	return input
+		.map((block: any): OverviewBlock | undefined => {
+			if (typeof block?.group === 'string') {
+				const group = block.group.replace(/[^\w-]/g, '').slice(0, 40);
+				if (!group) return undefined;
+				const title = text(block.title, 40);
+				return { group, ...(title && { title }), items: items(block.items) };
+			}
+			return typeof block?.item === 'string' && ITEM.test(block.item)
+				? { item: block.item }
+				: undefined;
+		})
+		.filter((block): block is OverviewBlock => !!block)
+		.slice(0, 60);
 }
 
 function cleanBrain(input: any, before: BrainSettings): BrainSettings {
@@ -191,7 +216,8 @@ export async function PUT({ request }) {
 		aiEffort: ['low', 'medium', 'high'].includes(body.aiEffort as string)
 			? (body.aiEffort as Settings['aiEffort'])
 			: before.aiEffort,
-		schedules: cleanSchedules(body.schedules, rooms, before.schedules)
+		schedules: cleanSchedules(body.schedules, rooms, before.schedules),
+		overview: cleanOverview(body.overview, before.overview)
 	};
 	await saveSettings(settings);
 	await refreshWatched();
