@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { decide, emptyMemory, fit, nextChange, scheduleTarget, toSend } from '$lib/brain';
 import { DEFAULT_SETTINGS, type HaState, type Room, type RoomReading } from '$lib/types';
+import { houseMode, type HouseMode } from '$lib/houseMode';
 
 const brain = { ...DEFAULT_SETTINGS.brain, enabled: true, dryRun: false };
 const ZONE = 'climate.zone';
@@ -232,5 +233,51 @@ describe('toSend', () => {
 		const trial = { ...brain, dryRun: true };
 		const would = { ...emptyMemory(), sent: { 'climate.v1': { at: now - 3_600_000, temp: 23 } } };
 		expect(toSend([item], states, would, trial, now)).toHaveLength(0);
+	});
+});
+
+describe('house mode', () => {
+	const states = { 'climate.v1': trv('climate.v1', 21), [ZONE]: trv(ZONE, 21) };
+	const inputs = [{ room: room('bed', ['climate.v1']), reading: reading('bed', 19) }];
+	const plan = (mode?: HouseMode, b = brain, memory = emptyMemory()) =>
+		decide(inputs, { bed: schedule(21) }, b, states, ZONE, memory, now, mode).plans[0];
+
+	it('reads the options in Croatian and English', () => {
+		expect(houseMode('Godišnji')).toBe('vacation');
+		expect(houseMode('Noć')).toBe('night');
+		expect(houseMode('away')).toBe('away');
+		expect(houseMode('unavailable')).toBeUndefined();
+		expect(houseMode(undefined)).toBeUndefined();
+	});
+
+	it('lowers the schedule while away or on vacation, until the mode changes', () => {
+		expect(plan('away')).toMatchObject({ target: 17, source: 'away', until: undefined });
+		expect(plan('vacation')).toMatchObject({ target: 12, source: 'vacation' });
+		expect(plan('home')).toMatchObject({ target: 21, source: 'schedule' });
+		expect(plan('night')).toMatchObject({ target: 21, source: 'schedule' });
+	});
+
+	it('never raises a lower schedule, and frost protection still holds', () => {
+		const cold = decide(
+			inputs,
+			{ bed: schedule(15, 15) },
+			brain,
+			states,
+			ZONE,
+			emptyMemory(),
+			now,
+			'away'
+		);
+		expect(cold.plans[0]).toMatchObject({ target: 15, source: 'schedule' });
+		expect(plan('vacation', { ...brain, vacationTemp: 4 }).target).toBe(brain.frostTemp);
+	});
+
+	it('leaves a manual change alone, and does nothing when switched off', () => {
+		const memory = { ...emptyMemory(), overrides: { bed: { temp: 22, until: now + 3_600_000 } } };
+		expect(plan('away', brain, memory)).toMatchObject({ target: 22, source: 'override' });
+		expect(plan('vacation', { ...brain, followMode: false })).toMatchObject({
+			target: 21,
+			source: 'schedule'
+		});
 	});
 });

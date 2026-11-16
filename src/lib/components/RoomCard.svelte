@@ -27,6 +27,20 @@
 	import { roomHistory } from '$lib/roomHistory.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import Icon from '@iconify/svelte';
+	import type { Source } from '$lib/brain';
+
+	const SOURCE_ICONS: Record<Source, string> = {
+		schedule: 'mdi:calendar-clock',
+		override: 'mdi:hand-back-right-outline',
+		away: 'mdi:home-export-outline',
+		vacation: 'mdi:palm-tree'
+	};
+	const SOURCE_LABELS: Record<Source, Key> = {
+		schedule: 'plan_schedule',
+		override: 'plan_override',
+		away: 'plan_away',
+		vacation: 'plan_vacation'
+	};
 
 	let { room, reading }: { room: Room; reading: RoomReading } = $props();
 
@@ -296,12 +310,9 @@
 		{/if}
 		{#if plan}
 			<p class="plan">
-				<Icon
-					icon={plan.source === 'override' ? 'mdi:hand-back-right-outline' : 'mdi:calendar-clock'}
-					height="0.95rem"
-				/>
+				<Icon icon={SOURCE_ICONS[plan.source ?? 'schedule']} height="0.95rem" />
 				<span
-					>{plan.source === 'override' ? $t('plan_override') : $t('plan_schedule')}{#if plan.until}
+					>{$t(SOURCE_LABELS[plan.source ?? 'schedule'])}{#if plan.until}
 						{$t('plan_until', { time: clock(plan.until) })}{/if}</span
 				>
 				<span class="w-dim"

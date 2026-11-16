@@ -193,7 +193,8 @@
 			key: 'waterHeater',
 			label: 'ent_water_heater',
 			filter: (e) => domain(e.id) === 'water_heater'
-		}
+		},
+		{ key: 'mode', label: 'ent_mode', filter: (e) => domain(e.id) === 'input_select' }
 	];
 
 	function setEntity(key: keyof SystemEntities, value: string) {
@@ -568,6 +569,28 @@
 						/>
 						<span>{$t('brain_windows')}</span>
 					</label>
+					<label class="switch">
+						<input
+							type="checkbox"
+							checked={$settings.brain.followMode}
+							onchange={(e) => setBrain({ followMode: e.currentTarget.checked })}
+						/>
+						<span>{$t('brain_follow_mode')}</span>
+					</label>
+					<p class="hint">{$t('brain_follow_mode_hint')}</p>
+					{#if $settings.brain.followMode}
+						{#each [['awayTemp', 'brain_away_temp'], ['vacationTemp', 'brain_vacation_temp']] as const as [key, label] (key)}
+							<div class="field">
+								<span>{$t(label)}</span>
+								<input
+									class="text short"
+									value={$settings.brain[key]}
+									inputmode="decimal"
+									onchange={(e) => setBrainNumber(key, e.currentTarget.value)}
+								/>
+							</div>
+						{/each}
+					{/if}
 					{#each [['hysteresis', 'brain_hysteresis'], ['openOffset', 'brain_open_offset'], ['closedTemp', 'brain_closed_temp'], ['ecoTemp', 'brain_eco_temp'], ['frostTemp', 'brain_frost_temp'], ['minMinutes', 'brain_min_minutes']] as const as [key, label] (key)}
 						<div class="field">
 							<span>{$t(label)}</span>

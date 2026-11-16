@@ -133,7 +133,10 @@ function cleanBrain(input: any, before: BrainSettings): BrainSettings {
 		ecoTemp: range(b.ecoTemp, 5, 22, before.ecoTemp),
 		house: flag(b.house, before.house),
 		windows: flag(b.windows, before.windows),
-		frostTemp: range(b.frostTemp, 4, 12, before.frostTemp)
+		frostTemp: range(b.frostTemp, 4, 12, before.frostTemp),
+		followMode: flag(b.followMode, before.followMode),
+		awayTemp: range(b.awayTemp, 5, 25, before.awayTemp),
+		vacationTemp: range(b.vacationTemp, 5, 25, before.vacationTemp)
 	};
 }
 
@@ -171,7 +174,8 @@ export async function PUT({ request }) {
 					'dhw',
 					'waterHeater',
 					'indoor',
-					'outdoorHumidity'
+					'outdoorHumidity',
+					'mode'
 				]
 					.map((key) => [key, entity(e[key])])
 					.filter(([, value]) => value)

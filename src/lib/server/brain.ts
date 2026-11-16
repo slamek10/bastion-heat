@@ -11,6 +11,7 @@ import { currentRooms } from '$lib/server/heat';
 import { publish } from '$lib/server/bus';
 import { decide, emptyMemory, nextChange, type Memory, type RoomPlan } from '$lib/brain';
 import { zoneFor } from '$lib/rooms';
+import { houseMode } from '$lib/houseMode';
 import type { BrainStatus, Decision } from '$lib/types';
 
 const LOG = 'decisions.json';
@@ -21,6 +22,8 @@ interface State {
 	plans: RoomPlan[];
 	recent: Decision[];
 	running: boolean;
+	/** the house mode in the last round ('none' when there is none) */
+	mode?: string;
 }
 const global = globalThis as unknown as { __heatBrain?: State };
 const state: State = (global.__heatBrain ??= {
@@ -76,6 +79,12 @@ export async function round() {
 			zone: zoneFor(room, settings.entities)
 		}));
 		const states = watchedStates();
+		const mode = settings.entities.mode
+			? houseMode(states[settings.entities.mode]?.state)
+			: undefined;
+		// a new house mode is the user's doing: it goes out now, not after the gap between commands
+		if (state.mode !== undefined && state.mode !== (mode ?? 'none')) mem.sent = {};
+		state.mode = mode ?? 'none';
 		const result = decide(
 			inputs,
 			settings.schedules,
@@ -83,7 +92,8 @@ export async function round() {
 			states,
 			settings.entities.zone,
 			mem,
-			now
+			now,
+			mode
 		);
 		state.plans = result.plans;
 		for (const plan of result.plans) {

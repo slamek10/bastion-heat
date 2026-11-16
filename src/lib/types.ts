@@ -1,3 +1,5 @@
+import { DEFAULT_MODE_ENTITY } from '$lib/houseMode';
+
 export type Locale = 'hr' | 'en';
 
 /** the house's heating entities in Home Assistant */
@@ -19,6 +21,8 @@ export interface SystemEntities {
 	indoor?: string;
 	/** outdoor humidity: a sensor, or a weather entity (its humidity and temperature) */
 	outdoorHumidity?: string;
+	/** the Bastion apps' house mode (lib/houseMode.ts), an input_select */
+	mode?: string;
 }
 
 export type Aggregation = 'mean' | 'median' | 'min';
@@ -79,6 +83,10 @@ export interface BrainSettings {
 	windows: boolean;
 	/** no room is ever aimed lower */
 	frostTemp: number;
+	/** the house mode lowers the rooms: away to awayTemp, vacation to vacationTemp */
+	followMode: boolean;
+	awayTemp: number;
+	vacationTemp: number;
 }
 
 export interface PresetTarget {
@@ -156,7 +164,8 @@ export const DEFAULT_SETTINGS: Settings = {
 		pressure: 'sensor.slameks_residence_system_water_pressure',
 		curve: 'sensor.slameks_residence_circuit_0_heating_curve',
 		dhw: 'sensor.slameks_residence_domestic_hot_water_0_current_special_function',
-		indoor: 'sensor.slameks_residence_zone_1_circuit_0_current_temperature'
+		indoor: 'sensor.slameks_residence_zone_1_circuit_0_current_temperature',
+		mode: DEFAULT_MODE_ENTITY
 	},
 	rooms: [
 		{
@@ -212,7 +221,10 @@ export const DEFAULT_SETTINGS: Settings = {
 		ecoTemp: 17,
 		house: true,
 		windows: true,
-		frostTemp: 7
+		frostTemp: 7,
+		followMode: true,
+		awayTemp: 17,
+		vacationTemp: 12
 	},
 	aiEffort: 'medium',
 	schedules: {},
@@ -292,7 +304,7 @@ export interface BrainPlan {
 	roomId: string;
 	managed: boolean;
 	target?: number;
-	source?: 'schedule' | 'override';
+	source?: 'schedule' | 'override' | 'away' | 'vacation';
 	until?: number;
 	calling: boolean;
 	reason: string;

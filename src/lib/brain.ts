@@ -9,6 +9,7 @@
 import type { Key } from '$lib/i18n';
 import type { BrainSettings, HaState, Room, RoomReading, RoomSchedule } from '$lib/types';
 import { numberOf } from '$lib/rooms';
+import type { HouseMode } from '$lib/houseMode';
 
 export const minutesOf = (hhmm: string) => {
 	const [h, m] = hhmm.split(':').map(Number);
@@ -72,7 +73,8 @@ export interface Memory {
 
 export const emptyMemory = (): Memory => ({ calling: {}, overrides: {}, sent: {} });
 
-export type Source = 'schedule' | 'override';
+/** where a room's target comes from: the house mode lowers the schedule's, never a manual change */
+export type Source = 'schedule' | 'override' | 'away' | 'vacation';
 
 export interface RoomPlan {
 	roomId: string;
@@ -126,7 +128,8 @@ export function planRoom(
 	schedule: RoomSchedule | undefined,
 	brain: BrainSettings,
 	memory: Memory,
-	now: number
+	now: number,
+	mode?: HouseMode
 ): RoomPlan {
 	const { room, reading } = input;
 	const base = { roomId: room.id, calling: false, vars: { name: room.name } };
@@ -135,10 +138,21 @@ export function planRoom(
 	const override = memory.overrides[room.id];
 	const active = override && override.until > now ? override : undefined;
 	const scheduled = scheduleTarget(schedule, new Date(now));
+	// the house mode (away, vacation) caps the schedule; a manual change still wins
+	const cap =
+		active || !brain.followMode
+			? undefined
+			: mode === 'away'
+				? brain.awayTemp
+				: mode === 'vacation'
+					? brain.vacationTemp
+					: undefined;
+	const lowered = cap !== undefined && cap < scheduled.temp;
 	// frost protection always holds
-	const target = Math.max(active?.temp ?? scheduled.temp, brain.frostTemp);
-	const source: Source = active ? 'override' : 'schedule';
-	const until = active?.until ?? nextChange(schedule, now);
+	const target = Math.max(active?.temp ?? (lowered ? cap : scheduled.temp), brain.frostTemp);
+	const source: Source = active ? 'override' : lowered ? (mode as 'away' | 'vacation') : 'schedule';
+	// the mode lasts until it is changed
+	const until = active?.until ?? (lowered ? undefined : nextChange(schedule, now));
 	const plan = { ...base, managed: true, target, source, until };
 	const vars = { ...base.vars, target: fmt(target) };
 
@@ -275,10 +289,11 @@ export function decide(
 	states: Record<string, HaState>,
 	zone: string | undefined,
 	memory: Memory,
-	now: number
+	now: number,
+	mode?: HouseMode
 ) {
 	const plans = inputs.map((input) =>
-		planRoom(input, schedules[input.room.id], brain, memory, now)
+		planRoom(input, schedules[input.room.id], brain, memory, now, mode)
 	);
 	const all = wanted(inputs, plans, brain, states, zone);
 	return { plans, wanted: all, send: brain.enabled ? toSend(all, states, memory, brain, now) : [] };

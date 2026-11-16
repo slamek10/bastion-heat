@@ -159,6 +159,7 @@ const hr = {
 	humidity_limit: 'Vlaga od (%)',
 	co2_limit: 'CO₂ od (ppm)',
 	ent_outdoor_humidity: 'Vanjska vlaga (senzor ili weather entitet)',
+	ent_mode: 'Način kuće (Bastion, input_select)',
 	room_co2_sensor: 'CO₂ senzor (neobavezno)',
 	frost_alerts: 'Upozorenje na hladnoću',
 	frost_alerts_hint:
@@ -399,6 +400,11 @@ const hr = {
 	brain_house_hint:
 		'Kad nijedna soba ne traži toplinu, glavna zona ide na eco; kad neka traži, zona ide na njen cilj. Radi samo ako i soba s termostatom zone ima raspored.',
 	brain_windows: 'Otvoren prozor zatvara ventile sobe',
+	brain_follow_mode: 'Prati način kuće',
+	brain_follow_mode_hint:
+		'Dok je kuća na Odsutni ili Godišnji, sobe s rasporedom idu najviše na temperature ispod; po povratku na Doma odmah natrag na raspored. Ručna promjena sobe i dalje vrijedi. Način kuće je input_select.bastion_mode u Home Assistantu (Bastion HA → Početna, glas ili HA app).',
+	brain_away_temp: 'Odsutni (°C)',
+	brain_vacation_temp: 'Godišnji (°C)',
 	brain_hysteresis: 'Histereza (°C)',
 	brain_open_offset: 'Otvoren ventil: cilj + (°C)',
 	brain_closed_temp: 'Zatvoren ventil (°C)',
@@ -425,6 +431,8 @@ const hr = {
 	brain_zone_note: 'Zonom upravlja automatika; promjena ovdje vrijedi do sljedeće odluke.',
 	plan_schedule: 'Raspored',
 	plan_override: 'Ručno',
+	plan_away: 'Odsutni',
+	plan_vacation: 'Godišnji',
 	plan_until: 'do {time}',
 	plan_calling: 'traži toplinu',
 	plan_warm: 'topla',
@@ -599,6 +607,7 @@ const en: typeof hr = {
 	humidity_limit: 'Humidity from (%)',
 	co2_limit: 'CO₂ from (ppm)',
 	ent_outdoor_humidity: 'Outdoor humidity (a sensor or a weather entity)',
+	ent_mode: 'House mode (Bastion, input_select)',
 	room_co2_sensor: 'CO₂ sensor (optional)',
 	frost_alerts: 'Cold warning',
 	frost_alerts_hint:
@@ -842,6 +851,11 @@ const en: typeof hr = {
 	brain_house_hint:
 		"When no room asks for heat the main zone goes to eco; when one does, the zone goes to its target. Only when the room with the zone's thermostat has a schedule too.",
 	brain_windows: "An open window closes the room's valves",
+	brain_follow_mode: 'Follow the house mode',
+	brain_follow_mode_hint:
+		"While the house is away or on vacation, rooms with a schedule go no higher than the temperatures below; back home, straight back to the schedule. A room's manual change still holds. The house mode is input_select.bastion_mode in Home Assistant (Bastion HA → Home, voice or the HA app).",
+	brain_away_temp: 'Away (°C)',
+	brain_vacation_temp: 'Vacation (°C)',
 	brain_hysteresis: 'Hysteresis (°C)',
 	brain_open_offset: 'Open valve: target + (°C)',
 	brain_closed_temp: 'Closed valve (°C)',
@@ -869,6 +883,8 @@ const en: typeof hr = {
 	brain_zone_note: 'Automation runs the zone; a change here lasts until its next decision.',
 	plan_schedule: 'Schedule',
 	plan_override: 'Manual',
+	plan_away: 'Away',
+	plan_vacation: 'Vacation',
 	plan_until: 'until {time}',
 	plan_calling: 'wants heat',
 	plan_warm: 'warm',
