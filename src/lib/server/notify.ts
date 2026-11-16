@@ -49,10 +49,13 @@ export async function notifyServices(): Promise<string[]> {
 
 export async function sendNotification(services: string[], notification: Notification) {
 	const link = config.publicUrl ? `${config.publicUrl}/` : undefined;
+	const icon = config.publicUrl ? `${config.publicUrl}/icon-192.png` : undefined;
 	const data: Record<string, unknown> = {
+		subtitle: 'Bastion Heat',
 		...(notification.actions?.length && { actions: notification.actions }),
 		tag: notification.tag,
 		group: 'bastion-heat',
+		...(icon && { image: icon }),
 		...(link && { url: link, clickAction: link }),
 		...(notification.urgent && {
 			push: { 'interruption-level': 'time-sensitive' },
