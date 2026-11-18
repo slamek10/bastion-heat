@@ -5,14 +5,23 @@ import type { AddressInfo } from 'node:net';
 let server: WebSocketServer;
 const calls: any[] = [];
 let token = 'good';
+/** answers nothing and closes nothing, like a connection that died quietly */
+let silent = false;
+let connections = 0;
 
 beforeAll(async () => {
 	server = new WebSocketServer({ port: 0, host: '127.0.0.1' });
 	await new Promise<void>((resolve) => server.on('listening', () => resolve()));
 	server.on('connection', (socket) => {
+		connections++;
 		socket.send(JSON.stringify({ type: 'auth_required' }));
 		socket.on('message', (raw) => {
+			if (silent) return;
 			const message = JSON.parse(String(raw));
+			if (message.type === 'ping') {
+				socket.send(JSON.stringify({ id: message.id, type: 'pong' }));
+				return;
+			}
 			if (message.type === 'auth') {
 				socket.send(
 					JSON.stringify({ type: message.access_token === token ? 'auth_ok' : 'auth_invalid' })
@@ -56,6 +65,8 @@ beforeAll(async () => {
 	});
 	process.env.HASS_URL = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 	process.env.HASS_TOKEN = token;
+	process.env.HA_PING_MS = '150';
+	process.env.HA_PING_WAIT_MS = '150';
 });
 afterAll(async () => {
 	process.env.HASS_URL = '';
@@ -96,4 +107,16 @@ describe('Home Assistant over the websocket', () => {
 			service_data: { entity_id: 'climate.zone', temperature: 21.5 }
 		});
 	});
+
+	it('gives up a connection that stopped answering and connects again', async () => {
+		const { haReady, getState } = await import('./ha');
+		expect(await until(() => haReady())).toBe(true);
+		const before = connections;
+		silent = true;
+		// the ping goes unanswered: not ready any more
+		expect(await until(() => !haReady())).toBe(true);
+		silent = false;
+		expect(await until(() => haReady() && connections > before, 6000)).toBe(true);
+		expect(getState('climate.zone')?.state).toBe('heat');
+	}, 10_000);
 });

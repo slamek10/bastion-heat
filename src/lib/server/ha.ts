@@ -29,6 +29,8 @@ interface State {
 	changed: Map<string, HaState>;
 	flush?: ReturnType<typeof setTimeout>;
 	delay: number;
+	heartbeat?: ReturnType<typeof setInterval>;
+	connecting?: ReturnType<typeof setTimeout>;
 }
 
 const global = globalThis as unknown as { __heatHa?: State };
@@ -71,6 +73,52 @@ function queuePublish(entity: HaState) {
 	}, 400);
 }
 
+/**
+ * A connection can die without a close event (HA restarted, the network
+ * dropped): Heat then kept the last states for hours. HA is pinged every
+ * PING_EVERY; no pong within PING_WAIT, or no login within CONNECT_WAIT,
+ * and the socket is given up and a new one opened.
+ */
+const PING_EVERY = Number(process.env.HA_PING_MS) || 30_000;
+const PING_WAIT = Number(process.env.HA_PING_WAIT_MS) || 10_000;
+const CONNECT_WAIT = Number(process.env.HA_CONNECT_WAIT_MS) || 20_000;
+
+/** the socket is gone (closed, or given up): forget it and connect again, once */
+function dropped(socket: WebSocket, why: string) {
+	if (state.socket !== socket) return;
+	state.socket = undefined;
+	clearInterval(state.heartbeat);
+	clearTimeout(state.connecting);
+	socket.onmessage = socket.onclose = socket.onerror = null;
+	try {
+		socket.close();
+	} catch {
+		// already closed
+	}
+	const wasReady = state.ready;
+	state.ready = false;
+	setStatus({ ha: false });
+	for (const [id, waiting] of state.pending) {
+		clearTimeout(waiting.timer);
+		waiting.reject(new Error('Home Assistant disconnected'));
+		state.pending.delete(id);
+	}
+	if (wasReady || state.delay <= 2000)
+		console.warn(`[ha] ${why}; connecting again in ${state.delay / 1000} s`);
+	setTimeout(connect, state.delay);
+	state.delay = Math.min(state.delay * 2, 60_000);
+}
+
+function heartbeat(socket: WebSocket) {
+	clearInterval(state.heartbeat);
+	state.heartbeat = setInterval(() => {
+		if (state.socket !== socket) return clearInterval(state.heartbeat);
+		send({ type: 'ping' }, PING_WAIT).catch(() =>
+			dropped(socket, 'no answer to ping, the connection is dead')
+		);
+	}, PING_EVERY);
+}
+
 function connect() {
 	if (!url() || !token()) return;
 	let socket: WebSocket;
@@ -81,6 +129,10 @@ function connect() {
 		return;
 	}
 	state.socket = socket;
+	clearTimeout(state.connecting);
+	state.connecting = setTimeout(() => {
+		if (!state.ready) dropped(socket, 'no login within the time');
+	}, CONNECT_WAIT);
 	socket.onmessage = async (event) => {
 		let message: any;
 		try {
@@ -94,23 +146,27 @@ function connect() {
 			console.warn('[ha] the token was refused');
 			socket.close();
 		} else if (message.type === 'auth_ok') {
+			clearTimeout(state.connecting);
 			state.ready = true;
-			state.delay = 2000;
 			try {
 				const list: HaState[] = await send({ type: 'get_states' });
 				state.states = new Map(list.map((entity) => [entity.entity_id, entity]));
 				await send({ type: 'subscribe_events', event_type: 'state_changed' });
+				state.delay = 2000;
 				setStatus({ ha: true });
 				publish({ kind: 'states', states: watchedStates() });
+				heartbeat(socket);
+				console.log(`[ha] connected, ${list.length} states`);
 			} catch (error) {
-				console.warn('[ha]', (error as Error).message);
+				// without states and changes the connection is no use
+				dropped(socket, (error as Error).message);
 			}
-		} else if (message.type === 'result') {
+		} else if (message.type === 'result' || message.type === 'pong') {
 			const waiting = state.pending.get(message.id);
 			if (!waiting) return;
 			state.pending.delete(message.id);
 			clearTimeout(waiting.timer);
-			if (message.success) waiting.resolve(message.result);
+			if (message.type === 'pong' || message.success) waiting.resolve(message.result);
 			else waiting.reject(new Error(message.error?.message ?? 'Home Assistant refused'));
 		} else if (message.type === 'event' && message.event?.event_type === 'state_changed') {
 			const next: HaState | null = message.event.data?.new_state;
@@ -121,17 +177,7 @@ function connect() {
 			} else state.states.delete(id);
 		}
 	};
-	socket.onclose = () => {
-		state.ready = false;
-		setStatus({ ha: false });
-		for (const [id, waiting] of state.pending) {
-			clearTimeout(waiting.timer);
-			waiting.reject(new Error('Home Assistant disconnected'));
-			state.pending.delete(id);
-		}
-		setTimeout(connect, state.delay);
-		state.delay = Math.min(state.delay * 2, 60_000);
-	};
+	socket.onclose = (event) => dropped(socket, `closed (${event.code})`);
 	socket.onerror = () => {};
 }
 
